@@ -1,5 +1,7 @@
 import type { PropsWithChildren, ReactNode } from 'react';
 
+import '../auth.css';
+
 interface AuthLayoutProps extends PropsWithChildren {
   title: string;
   subtitle?: string;
@@ -20,14 +22,26 @@ export function AuthLayout({
     <div className="auth-page">
       <div className={`auth-card${centered ? ' auth-card--centered' : ''}`}>
         <div style={{ textAlign: 'center', marginBottom: '0.75rem' }}>
-          <div style={{ fontWeight: 800, fontSize: '1.1rem', color: 'var(--color-primary)' }}>
+          <div
+            style={{
+              fontWeight: 800,
+              fontSize: '1.1rem',
+              letterSpacing: '0.09em',
+              textTransform: 'uppercase',
+              color: 'var(--color-primary)',
+            }}
+          >
             AI-Hunt
           </div>
         </div>
+
         <h1 className="auth-card__title">{title}</h1>
         {subtitle && <p className="auth-card__subtitle">{subtitle}</p>}
+
         {alert}
+
         {children}
+
         {footer && <div className="auth-footer">{footer}</div>}
       </div>
     </div>

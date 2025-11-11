@@ -3,10 +3,9 @@ import { useNavigate } from 'react-router-dom';
 
 import { useAuth } from '@/auth/AuthContext';
 import { AuthLayout } from '@/auth/components/AuthLayout';
+import { PasswordField } from '@/auth/components/PasswordField';
 import { logAuthEvent } from '@/auth/logger';
 import { validateEmail } from '@/auth/validation';
-import eyeOpen from '@/assets/icons/eye-open.svg';
-import eyeClosed from '@/assets/icons/eye-closed.svg';
 
 export default function LoginEmailPage() {
   const navigate = useNavigate();
@@ -17,7 +16,6 @@ export default function LoginEmailPage() {
   const [emailTouched, setEmailTouched] = useState(false);
 
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
 
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
@@ -112,31 +110,16 @@ export default function LoginEmailPage() {
           />
           {emailError && <div className="form-error">{emailError}</div>}
         </div>
+
         <div className="form-field">
           <label htmlFor="login-password" className="form-label">
             Пароль
           </label>
-          <div className="form-input-wrapper">
-            <input
-              id="login-password"
-              type={showPassword ? 'text' : 'password'}
-              className="form-input form-input--with-toggle"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-            <button
-              type="button"
-              className="form-input__toggle"
-              onClick={() => setShowPassword((prev) => !prev)}
-              aria-label={showPassword ? 'Скрыть пароль' : 'Показать пароль'}
-            >
-              <img
-                src={showPassword ? eyeOpen : eyeClosed}
-                alt={showPassword ? 'Пароль виден' : 'Пароль скрыт'}
-                className="form-input__toggle-icon"
-              />
-            </button>
-          </div>
+          <PasswordField
+            id="login-password"
+            value={password}
+            onChange={setPassword}
+          />
         </div>
 
         <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
