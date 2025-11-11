@@ -1,4 +1,4 @@
-# AI-hunt SPA (Vite + React + TS)
+# OH-Front SPA (Vite + React + TS)
 
 ## Скрипты
 
@@ -11,13 +11,15 @@
 
 ## Переменные окружения
 
-Смотри `.env.sample`. Важно: для Vite все переменные должны иметь префикс `VITE_`.
+Все необходимые переменные окружения описаны в файле `.env.sample`. Перед первым запуском скопируйте его в `.env` и заполните своими значениями.
+
+Важно: для Vite все переменные должны иметь префикс `VITE_`.
 
 - `VITE_OIDC_AUTHORITY` — URL провайдера OIDC
 - `VITE_OIDC_CLIENT_ID` — `client_id`
 - `VITE_OIDC_REDIRECT_URI` — `https://host/auth/callback`
 - `VITE_OIDC_SCOPE` — например, `openid profile email offline_access`
-- `VITE_BACKEND_API` — базовый URL API (например, `http://localhost:8080/api`)
+- `VITE_BACKEND_API` — базовый URL API, который будет использовать фронтенд (например, `/api`).
 
 ## OAuth2/OIDC (Authorization Code + PKCE)
 
@@ -30,7 +32,28 @@
 
 ## Docker
 
-- Мультистейдж Dockerfile (build → nginx)
-- Nginx проксирует `/api` → `BACKEND_API` (envsubst в entrypoint)
+- `Dockerfile` собирает образ, содержащий только статические файлы приложения (`dist`).
+- `docker-compose.yml` организует локальный запуск, имитируя production-окружение с отдельным Nginx.
 
-### Локально (docker)
+### Локально (docker-compose)
+
+1.  Скопируйте `.env.sample` в новый файл `.env`:
+    ```bash
+    cp .env.sample .env
+    ```
+2.  Откройте `.env` и заполните его своими значениями.
+    - Для `VITE_BACKEND_API` используйте `/api`, чтобы запросы проксировались через Nginx.
+    - Для `VITE_OIDC_REDIRECT_URI` локально удобно использовать `http://localhost:5173/auth/callback`.
+
+3.  Запустите сборку и контейнеры:
+
+    ```bash
+    docker-compose up --build -d
+    ```
+
+    Эта команда:
+    - Соберёт образ `oh-front-assets:local` со статикой вашего приложения.
+    - Запустит временный контейнер `init-spa`, чтобы скопировать эту статику в Docker-том.
+    - Запустит контейнер `webserver` (Nginx), который будет раздавать статику из тома и проксировать запросы к API.
+
+4.  Приложение будет доступно по адресу `http://localhost:5173`.

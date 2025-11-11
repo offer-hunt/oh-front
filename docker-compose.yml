@@ -1,0 +1,18 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        # Передаем переменные из .env файла в Dockerfile на этапе сборки
+        VITE_OIDC_AUTHORITY: ${VITE_OIDC_AUTHORITY}
+        VITE_OIDC_CLIENT_ID: ${VITE_OIDC_CLIENT_ID}
+        VITE_OIDC_REDIRECT_URI: ${VITE_OIDC_REDIRECT_URI}
+        VITE_OIDC_SCOPE: ${VITE_OIDC_SCOPE}
+        VITE_BACKEND_API: ${VITE_BACKEND_API:-/api}
+    container_name: oh-front-app
+    ports:
+      - '5173:80'
+    restart: unless-stopped
+    env_file:
+      - .env

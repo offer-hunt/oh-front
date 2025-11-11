@@ -4,7 +4,7 @@ import type { ReactNode } from 'react';
 import { RouterProvider, createMemoryRouter } from 'react-router-dom';
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 
-import { router as appRouter } from '../routes';
+import { router as appRouter } from '@/routes';
 
 const useAuthMock = vi.fn();
 vi.mock('react-oidc-context', () => ({
