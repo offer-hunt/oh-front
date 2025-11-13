@@ -1,7 +1,13 @@
 module.exports = {
   root: true,
   parser: '@typescript-eslint/parser',
-  plugins: ['@typescript-eslint', 'react', 'react-hooks', 'import'],
+  parserOptions: {
+    ecmaVersion: 'latest',
+    sourceType: 'module',
+    project: ['./tsconfig.json', './tsconfig.node.json'],
+    tsconfigRootDir: __dirname,
+  },
+  plugins: ['@typescript-eslint', 'react', 'react-hooks', 'import', 'react-refresh'],
   extends: [
     'eslint:recommended',
     'plugin:react/recommended',
@@ -11,10 +17,12 @@ module.exports = {
     'plugin:import/typescript',
     'prettier',
   ],
+  ignorePatterns: ['dist', '.eslintrc.cjs'],
   settings: {
     react: { version: 'detect' },
     'import/resolver': {
       typescript: {
+        alwaysTryTypes: true,
         project: './tsconfig.json',
       },
       node: {
@@ -24,8 +32,10 @@ module.exports = {
   },
   env: { browser: true, es2022: true, node: true },
   rules: {
+    'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     'react/react-in-jsx-scope': 'off',
     'react/prop-types': 'off',
+    'import/no-unresolved': 'error',
     'import/order': [
       'warn',
       {

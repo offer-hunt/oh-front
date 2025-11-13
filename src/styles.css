@@ -1,29 +1,224 @@
-:root {
-  font-family:
-    system-ui,
-    -apple-system,
-    Segoe UI,
-    Roboto,
-    Ubuntu,
-    Cantarell,
-    'Fira Sans',
-    'Droid Sans',
-    Helvetica,
-    Arial,
-    sans-serif;
+/* =========
+   БАЗОВЫЕ НАСТРОЙКИ
+   ========= */
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
 }
+
+:root {
+  /* Цвета (тёмная тема) */
+  --color-bg: #050816;
+  --color-bg-alt: #020617;
+
+  --color-surface: #0b1120;
+  --color-surface-soft: #111827;
+
+  --color-border-subtle: #1f2937;
+  --color-border-strong: #4b5563;
+
+  /* Основной акцент (фиолетовый) */
+  --color-primary: #4f46e5;
+  --color-primary-soft: rgba(79, 70, 229, 0.18);
+  --color-primary-strong: #6366f1;
+
+  /* Состояния */
+  --color-danger: #f87171;
+  --color-danger-soft: rgba(248, 113, 113, 0.1);
+
+  --color-success: #22c55e;
+  --color-success-soft: rgba(34, 197, 94, 0.09);
+
+  --color-text: #e5e7eb;
+  --color-text-muted: #9ca3af;
+
+  /* Тени / радиусы / анимации */
+  --shadow-soft: 0 18px 45px rgba(15, 23, 42, 0.9);
+  --shadow-subtle: 0 10px 28px rgba(15, 23, 42, 0.7);
+
+  --radius-lg: 18px;
+  --radius-md: 12px;
+  --radius-sm: 8px;
+  --radius-pill: 999px;
+
+  --transition-fast: 150ms ease-out;
+  --transition-med: 220ms ease-out;
+}
+
+/* =========
+   БАЗОВАЯ ТИПОГРАФИКА И ФОН
+   ========= */
+
+html,
 body {
   margin: 0;
+  padding: 0;
+  min-height: 100%;
 }
-nav {
-  display: flex;
-  gap: 12px;
-  padding: 12px;
-  border-bottom: 1px solid #eee;
+
+body {
+  min-height: 100vh;
+  font-family: system-ui, -apple-system, BlinkMacSystemFont, 'SF Pro Text',
+    'Segoe UI', sans-serif;
+  font-size: 16px;
+  line-height: 1.5;
+  color: var(--color-text);
+  background:
+    radial-gradient(circle at top left, rgba(79, 70, 229, 0.22), transparent 55%),
+    radial-gradient(circle at bottom right, rgba(8, 47, 73, 0.8), transparent 60%),
+    radial-gradient(circle at top right, rgba(14, 165, 233, 0.16), transparent 55%),
+    var(--color-bg);
+  -webkit-font-smoothing: antialiased;
 }
-.container {
-  padding: 16px;
+
+#root {
+  min-height: 100vh;
 }
+
+/* =========
+   БАЗОВЫЕ ЭЛЕМЕНТЫ
+   ========= */
+
+a {
+  color: inherit;
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
 button {
   cursor: pointer;
+}
+
+button:disabled {
+  cursor: default;
+  opacity: 0.65;
+}
+
+/* =========
+   ОБЩИЕ КНОПКИ ПРОЕКТА
+   ========= */
+
+.btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+
+  padding: 0.7rem 1.3rem;
+  border-radius: var(--radius-pill);
+  border: 1px solid transparent;
+
+  font-size: 0.95rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+
+  background: var(--color-surface-soft);
+  color: var(--color-text);
+
+  transition:
+    background var(--transition-fast),
+    border-color var(--transition-fast),
+    color var(--transition-fast),
+    transform var(--transition-fast),
+    box-shadow var(--transition-fast);
+}
+
+.btn:hover:not(:disabled) {
+  transform: translateY(-1px);
+  box-shadow: var(--shadow-subtle);
+}
+
+/* Первичная кнопка */
+
+.btn-primary {
+  background: radial-gradient(
+    circle at top left,
+    var(--color-primary-strong),
+    var(--color-primary)
+  );
+  border-color: rgba(129, 140, 248, 0.8);
+  color: #f9fafb;
+  box-shadow:
+    0 0 0 1px rgba(129, 140, 248, 0.5),
+    0 16px 30px rgba(15, 23, 42, 0.9);
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: radial-gradient(circle at top left, #818cf8, var(--color-primary-strong));
+}
+
+/* Обводка */
+
+.btn-outline {
+  background: rgba(15, 23, 42, 0.7);
+  border-color: var(--color-border-subtle);
+  color: var(--color-text);
+}
+
+.btn-outline:hover:not(:disabled) {
+  border-color: rgba(148, 163, 184, 0.9);
+  background: radial-gradient(
+    circle at top left,
+    rgba(79, 70, 229, 0.16),
+    rgba(15, 23, 42, 0.95)
+  );
+}
+
+/* Текстовая кнопка (ссылочка) */
+
+.btn-text {
+  background: none;
+  border-color: transparent;
+  padding-inline: 0.25rem;
+  padding-block: 0.2rem;
+  box-shadow: none;
+  color: var(--color-text-muted);
+}
+
+.btn-text:hover:not(:disabled) {
+  color: var(--color-primary-strong);
+  text-decoration: underline;
+  text-underline-offset: 0.16em;
+}
+
+/* =========
+   УТИЛИТЫ
+   ========= */
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  border: 0;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
+/* Базовый контейнер под будущие страницы */
+
+.page-container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1.25rem;
 }

@@ -1,5 +1,5 @@
 {
-  "name": "offerhunt-spa",
+  "name": "oh-front",
   "private": true,
   "version": "0.1.0",
   "type": "module",
@@ -37,6 +37,7 @@
     "eslint-plugin-import": "^2.30.0",
     "eslint-plugin-react": "^7.37.2",
     "eslint-plugin-react-hooks": "^5.1.0",
+    "eslint-plugin-react-refresh": "^0.4.9",
     "jsdom": "^25.0.1",
     "msw": "^2.6.6",
     "prettier": "^3.3.3",
