@@ -13,9 +13,17 @@ export default function App() {
           <Link to="/" className="app-nav__link">
             Главная
           </Link>
+
+          {isAuthenticated && (
+            <Link to="/courses" className="app-nav__link">
+              Курсы
+            </Link>
+          )}
+
           <Link to="/protected" className="app-nav__link">
             Прогресс
           </Link>
+
           {isAuthenticated ? (
             <span className="app-nav__user">👤 {user?.name || user?.email}</span>
           ) : (
