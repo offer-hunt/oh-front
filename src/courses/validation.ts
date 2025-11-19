@@ -11,9 +11,9 @@ const ALLOWED_COVER_TYPES = ['image/jpeg', 'image/png'];
 
 export function validateCourseTitle(value: string): string | null {
   const trimmed = value.trim();
-  if (!trimmed) return 'Название должно быть от 10 до 100 символов';
+  if (!trimmed) return 'Название не может быть пустым';
   if (trimmed.length < COURSE_TITLE_MIN || trimmed.length > COURSE_TITLE_MAX) {
-    return 'Название должно быть от 10 до 100 символов';
+    return `Название должно быть от ${COURSE_TITLE_MIN} до ${COURSE_TITLE_MAX} символов`;
   }
   return null;
 }
@@ -22,7 +22,7 @@ export function validateCourseDescription(value: string): string | null {
   const trimmed = value.trim();
   if (!trimmed) return 'Описание не может быть пустым';
   if (trimmed.length > COURSE_DESCRIPTION_MAX) {
-    return 'Описание не должно превышать 1000 символов';
+    return `Описание не должно превышать ${COURSE_DESCRIPTION_MAX} символов`;
   }
   return null;
 }
@@ -30,29 +30,10 @@ export function validateCourseDescription(value: string): string | null {
 export function validateCoverFile(file: File | null): string | null {
   if (!file) return null;
   if (!ALLOWED_COVER_TYPES.includes(file.type)) {
-    return 'Неверный формат или размер файла. Максимум 2 МБ, JPG или PNG';
+    return 'Неверный формат файла. Допустимы только JPG или PNG';
   }
   if (file.size > COVER_MAX_BYTES) {
-    return 'Неверный формат или размер файла. Максимум 2 МБ, JPG или PNG';
-  }
-  return null;
-}
-
-export function validateCoverMeta(
-  cover: CreateCourseInput['cover'] | null | undefined,
-): string | null {
-  if (!cover) return null;
-  if (cover.size > COVER_MAX_BYTES) {
-    return 'Неверный формат или размер файла. Максимум 2 МБ, JPG или PNG';
-  }
-  return null;
-}
-
-export function validateTagValue(value: string): string | null {
-  const trimmed = value.trim();
-  if (!trimmed) return 'Тег не может быть пустым';
-  if (trimmed.length > TAG_MAX_LENGTH) {
-    return 'Тег не должен быть длиннее 15 символов';
+    return 'Слишком большой размер файла. Максимум 2 МБ';
   }
   return null;
 }
@@ -62,7 +43,7 @@ export function validateTags(tags: string[]): string | null {
     return 'Количество тегов слишком большое';
   }
   if (tags.some((t) => t.trim().length > TAG_MAX_LENGTH)) {
-    return 'Тег не должен быть длиннее 15 символов';
+    return `Один из тегов длиннее ${TAG_MAX_LENGTH} символов`;
   }
   return null;
 }

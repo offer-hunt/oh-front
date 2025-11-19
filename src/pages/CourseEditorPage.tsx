@@ -41,7 +41,34 @@ export default function CourseEditorPage() {
     await courseApi.updateCourse(newCourse);
   };
 
-  // Structure Handlers
+  // --- Логика глубокого выбора (Фикс бага с пустым редактором) ---
+  const selectPageFully = (pageId: string) => {
+    if (!course) return;
+    for (const ch of course.chapters) {
+        for (const l of ch.lessons) {
+            if (l.pages.find(p => p.id === pageId)) {
+                setSelChapterId(ch.id);
+                setSelLessonId(l.id);
+                setSelPageId(pageId);
+                return;
+            }
+        }
+    }
+  };
+
+  const selectLessonFully = (lessonId: string) => {
+    if (!course) return;
+    for (const ch of course.chapters) {
+        if (ch.lessons.find(l => l.id === lessonId)) {
+            setSelChapterId(ch.id);
+            setSelLessonId(lessonId);
+            setSelPageId(null);
+            return;
+        }
+    }
+  };
+
+  // --- Создание ---
   const handleAddChapter = (title: string) => {
     if (!course) return;
     const newCh = { id: generateId('ch'), title, lessons: [] };
@@ -57,11 +84,11 @@ export default function CourseEditorPage() {
     );
     handleUpdateCourse({ ...course, chapters: newChapters });
     setSelLessonId(newLesson.id);
+    notify('Урок создан');
   };
 
   const handleAddPage = (title: string, kind: string) => {
     if (!course || !selChapterId || !selLessonId) return;
-
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const base = { id: generateId('page'), title, kind: kind as PageKind };
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -81,21 +108,65 @@ export default function CourseEditorPage() {
     notify('Страница создана');
   };
 
+  // --- Сортировка (Move) ---
+  const swap = <T,>(arr: T[], i1: number, i2: number): T[] => {
+      const res = [...arr];
+      [res[i1], res[i2]] = [res[i2], res[i1]];
+      return res;
+  };
+
+  const handleMoveChapter = (idx: number, dir: -1 | 1) => {
+      if (!course) return;
+      if (idx + dir < 0 || idx + dir >= course.chapters.length) return;
+      const newChapters = swap(course.chapters, idx, idx + dir);
+      handleUpdateCourse({ ...course, chapters: newChapters });
+  };
+
+  const handleMoveLesson = (chIdx: number, lIdx: number, dir: -1 | 1) => {
+      if (!course) return;
+      const ch = course.chapters[chIdx];
+      if (lIdx + dir < 0 || lIdx + dir >= ch.lessons.length) return;
+
+      const newLessons = swap(ch.lessons, lIdx, lIdx + dir);
+      const newChapters = [...course.chapters];
+      newChapters[chIdx] = { ...ch, lessons: newLessons };
+      handleUpdateCourse({ ...course, chapters: newChapters });
+  };
+
+  const handleMovePage = (chIdx: number, lIdx: number, pIdx: number, dir: -1 | 1) => {
+      if (!course) return;
+      const ch = course.chapters[chIdx];
+      const l = ch.lessons[lIdx];
+      if (pIdx + dir < 0 || pIdx + dir >= l.pages.length) return;
+
+      const newPages = swap(l.pages, pIdx, pIdx + dir);
+      const newLessons = [...ch.lessons];
+      newLessons[lIdx] = { ...l, pages: newPages };
+      const newChapters = [...course.chapters];
+      newChapters[chIdx] = { ...ch, lessons: newLessons };
+      handleUpdateCourse({ ...course, chapters: newChapters });
+  };
+
+  // --- Удаление ---
   const handleDeleteLesson = (id: string) => {
     if(!course || !selChapterId) return;
-    const newChapters = course.chapters.map(ch => ch.id === selChapterId ? { ...ch, lessons: ch.lessons.filter(l => l.id !== id) } : ch);
-    handleUpdateCourse({ ...course, chapters: newChapters });
-    if(selLessonId === id) setSelLessonId(null);
+    if(confirm('Удалить урок?')) {
+        const newChapters = course.chapters.map(ch => ch.id === selChapterId ? { ...ch, lessons: ch.lessons.filter(l => l.id !== id) } : ch);
+        handleUpdateCourse({ ...course, chapters: newChapters });
+        if(selLessonId === id) setSelLessonId(null);
+    }
   };
 
   const handleDeletePage = (id: string) => {
     if(!course || !selChapterId || !selLessonId) return;
-    const newChapters = course.chapters.map(ch => {
-      if (ch.id !== selChapterId) return ch;
-      return { ...ch, lessons: ch.lessons.map(l => l.id === selLessonId ? { ...l, pages: l.pages.filter(p => p.id !== id) } : l) };
-    });
-    handleUpdateCourse({ ...course, chapters: newChapters });
-    if(selPageId === id) setSelPageId(null);
+    if(confirm('Удалить страницу?')) {
+        const newChapters = course.chapters.map(ch => {
+          if (ch.id !== selChapterId) return ch;
+          return { ...ch, lessons: ch.lessons.map(l => l.id === selLessonId ? { ...l, pages: l.pages.filter(p => p.id !== id) } : l) };
+        });
+        handleUpdateCourse({ ...course, chapters: newChapters });
+        if(selPageId === id) setSelPageId(null);
+    }
   };
 
   const getSelectedPage = (): LessonPage | null => {
@@ -112,7 +183,6 @@ export default function CourseEditorPage() {
     setCourse({ ...course, chapters: newChapters });
   };
 
-  // Save Version
   const handleSaveVersion = async (comment: string) => {
     if(!course) return;
     await courseApi.saveVersion(course.id, comment);
@@ -133,34 +203,28 @@ export default function CourseEditorPage() {
 
   return (
     <div className="editor-shell">
-      {/* Top Toolbar */}
       <div className="editor-toolbar">
           <div className="flex items-center gap-4">
-              <button className="btn-icon" onClick={() => navigate('/courses')}>
+              <button className="btn-icon hover:bg-white/5" onClick={() => navigate('/courses')}>
                   <Icons.ChevronDown style={{transform: 'rotate(90deg)'}} width={20} height={20} />
               </button>
-              <div className="flex items-center gap-2">
-                  <span className="font-bold text-lg">{course.title}</span>
-                  <span className={`badge ${course.status==='published' ? 'badge-published' : 'badge-draft'}`}>{course.status}</span>
+              <div className="flex items-center gap-3">
+                  <span className="font-bold text-lg tracking-tight">{course.title}</span>
+                  <span className={`badge ${course.status==='published' ? 'badge-published' : 'badge-draft'}`}>
+                      {course.status === 'published' ? 'Published' : 'Draft'}
+                  </span>
               </div>
           </div>
-
           <div className="tabs">
               {['content', 'settings', 'versions', 'preview'].map(t => (
-                  <div
-                    key={t}
-                    className={`tab-btn ${tab === t ? 'active' : ''}`}
-                    onClick={() => setTab(t as any)}
-                  >
-                    {t === 'content' ? 'Контент' : t === 'settings' ? 'Настройки' : t === 'versions' ? 'Версии' : 'Предпросмотр'}
+                  <div key={t} className={`tab-btn ${tab === t ? 'active' : ''}`} onClick={() => setTab(t as any)}>
+                    {t === 'content' ? 'Контент' : t === 'settings' ? 'Настройки' : t === 'versions' ? 'История' : 'Просмотр'}
                   </div>
               ))}
           </div>
-
-          <div style={{width: 32}}></div>
+          <div style={{width: 40}}></div>
       </div>
 
-      {/* Body */}
       <div className="editor-body">
           {tab === 'content' && (
               <>
@@ -169,27 +233,32 @@ export default function CourseEditorPage() {
                     selectedChapterId={selChapterId}
                     selectedLessonId={selLessonId}
                     selectedPageId={selPageId}
-                    onSelectChapter={setSelChapterId}
-                    onSelectLesson={setSelLessonId}
-                    onSelectPage={setSelPageId}
+                    onSelectChapter={(id) => { setSelChapterId(id); setSelLessonId(null); setSelPageId(null); }}
+                    onSelectLesson={selectLessonFully}
+                    onSelectPage={selectPageFully}
                     onAddChapter={handleAddChapter}
                     onAddLesson={handleAddLesson}
                     onAddPage={handleAddPage}
                     onDeleteLesson={handleDeleteLesson}
                     onDeletePage={handleDeletePage}
+                    onMoveChapter={handleMoveChapter}
+                    onMoveLesson={handleMoveLesson}
+                    onMovePage={handleMovePage}
                 />
                 <div className="content-area">
                     {getSelectedPage() ? (
-                        <PageEditor
-                            page={getSelectedPage()!}
-                            onUpdate={handlePageUpdate}
-                            onSave={() => { handleUpdateCourse(course); notify('Сохранено'); }}
-                            notify={notify}
-                        />
+                        <div className="content-card animate-[fadeIn_0.3s]">
+                            <PageEditor
+                                page={getSelectedPage()!}
+                                onUpdate={handlePageUpdate}
+                                onSave={() => { handleUpdateCourse(course); notify('Сохранено'); }}
+                                notify={notify}
+                            />
+                        </div>
                     ) : (
                         <div className="flex items-center justify-center h-full text-[var(--text-tertiary)] flex-col gap-4">
-                            <div style={{fontSize: 48, opacity: 0.2}}>✏️</div>
-                            <div>Выберите страницу для редактирования</div>
+                            <div style={{fontSize: 64, opacity: 0.1, filter: 'grayscale(1)'}}>✏️</div>
+                            <div className="text-lg font-medium opacity-50">Выберите страницу для редактирования</div>
                         </div>
                     )}
                 </div>
@@ -204,12 +273,7 @@ export default function CourseEditorPage() {
                         onUpdate={handleUpdateCourse}
                         onPublish={() => { handleUpdateCourse({...course, status: 'published'}); notify('Опубликовано!'); }}
                         onArchive={() => { handleUpdateCourse({...course, status: 'archived'}); notify('Архивировано'); }}
-                        onDelete={() => {
-                            if(confirm('Удалить курс?')) {
-                                courseApi.deleteCourse(course.id);
-                                navigate('/courses');
-                            }
-                        }}
+                        onDelete={() => { if(confirm('Удалить курс?')) { courseApi.deleteCourse(course.id); navigate('/courses'); }}}
                         notify={notify}
                      />
                  </div>
@@ -231,11 +295,10 @@ export default function CourseEditorPage() {
           )}
       </div>
 
-      {/* Toasts */}
       <div className="toast-container">
           {toasts.map(t => (
-              <div key={t.id} className="toast" style={{borderColor: t.type==='error' ? 'var(--danger)' : 'var(--border)'}}>
-                  {t.type==='error' ? '⚠️' : '✅'} {t.msg}
+              <div key={t.id} className="toast" style={{borderColor: t.type==='error' ? 'var(--danger)' : 'var(--primary)'}}>
+                  {t.type==='error' ? '⚠️' : '✨'} {t.msg}
               </div>
           ))}
       </div>
