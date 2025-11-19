@@ -12,6 +12,10 @@ import LoginEmailPage from '@/auth/pages/LoginEmailPage';
 import PasswordRecoveryPage from '@/auth/pages/PasswordRecoveryPage';
 import PasswordResetPage from '@/auth/pages/PasswordResetPage';
 
+import CoursesPage from '@/pages/CoursesPage';
+import CourseCreatePage from '@/pages/CourseCreatePage';
+import CourseEditorPage from '@/pages/CourseEditorPage';
+
 import App from './App';
 
 export const router = createBrowserRouter([
@@ -21,16 +25,43 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Home /> },
 
-      // Страница выбора способа входа (сценарий #1)
-      { path: 'login', element: <Login /> }, // Login просто ре-экспорт AuthPage
+      // Страница выбора способа входа
+      { path: 'login', element: <Login /> }, // Login = AuthPage
       { path: 'login/chooser', element: <AuthPage /> },
 
-      // Отдельные сценарии
+      // Отдельные сценарии авторизации
       { path: 'login/email', element: <LoginEmailPage /> },
       { path: 'register', element: <RegisterPage /> },
       { path: 'password/recovery', element: <PasswordRecoveryPage /> },
       { path: 'password/reset/:token', element: <PasswordResetPage /> },
 
+      // --- Курсы ---
+      {
+        path: 'courses',
+        element: (
+          <ProtectedRoute>
+            <CoursesPage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'courses/new',
+        element: (
+          <ProtectedRoute>
+            <CourseCreatePage />
+          </ProtectedRoute>
+        ),
+      },
+      {
+        path: 'courses/:courseId',
+        element: (
+          <ProtectedRoute>
+            <CourseEditorPage />
+          </ProtectedRoute>
+        ),
+      },
+
+      // Прогресс (старый защищённый маршрут)
       {
         path: 'protected',
         element: (
@@ -39,6 +70,7 @@ export const router = createBrowserRouter([
           </ProtectedRoute>
         ),
       },
+
       { path: 'forbidden', element: <Forbidden /> },
     ],
   },
