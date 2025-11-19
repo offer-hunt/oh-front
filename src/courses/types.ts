@@ -110,7 +110,7 @@ export interface VersionSnapshot {
   createdAt: string;
   label?: string;
   comment?: string;
-  snapshot: string;
+  snapshot: string; // JSON string of the Course
 }
 
 export interface Course {
