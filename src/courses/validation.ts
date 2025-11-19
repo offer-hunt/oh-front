@@ -6,6 +6,7 @@ export const COURSE_DESCRIPTION_MAX = 1000;
 export const TAG_MAX_COUNT = 10;
 export const TAG_MAX_LENGTH = 15;
 export const COVER_MAX_BYTES = 2 * 1024 * 1024; // 2 МБ
+export const MAX_QUIZ_OPTIONS = 10;
 
 const ALLOWED_COVER_TYPES = ['image/jpeg', 'image/png'];
 
@@ -46,4 +47,10 @@ export function validateTags(tags: string[]): string | null {
     return `Один из тегов длиннее ${TAG_MAX_LENGTH} символов`;
   }
   return null;
+}
+
+export function validateQuiz(optionsCount: number): string | null {
+    if (optionsCount === 0) return 'Добавьте хотя бы один вариант ответа';
+    if (optionsCount > MAX_QUIZ_OPTIONS) return `Максимум ${MAX_QUIZ_OPTIONS} вариантов`;
+    return null;
 }

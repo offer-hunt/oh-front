@@ -10,13 +10,20 @@ export type DifficultyLevel = 'easy' | 'medium' | 'hard';
 
 export type SupportedLanguage = 'javascript' | 'typescript' | 'python' | 'java' | 'csharp';
 
+export interface AttachedFile {
+  id: string;
+  name: string;
+  size: number;
+  type: string;
+}
+
 export interface TheoryPageContent {
   mode: 'text' | 'markdown' | 'video';
   text?: string;
   markdown?: string;
   videoUrl?: string;
-  attachmentName?: string | null;
-  attachmentSize?: number | null;
+  // Добавлено согласно UC 5.3 (прикрепление файлов)
+  attachments?: AttachedFile[];
 }
 
 export interface QuizOption {
@@ -40,10 +47,6 @@ export interface CodePageContent {
   description: string;
   language: SupportedLanguage | '';
   testCases: CodeTestCase[];
-  files?: {
-    name: string;
-    size: number;
-  }[];
 }
 
 export type DetailedAnswerMode = 'exact' | 'prompt';
@@ -51,7 +54,8 @@ export type DetailedAnswerMode = 'exact' | 'prompt';
 export interface DetailedAnswerPageContent {
   description: string;
   answer: string;
-  answerMode: DetailedAnswerMode | null;
+  // Обязательно для UC 8.3
+  answerMode: DetailedAnswerMode;
 }
 
 export interface BasePage {
@@ -110,7 +114,7 @@ export interface VersionSnapshot {
   createdAt: string;
   label?: string;
   comment?: string;
-  snapshot: string; // JSON string of the Course
+  snapshot: string;
 }
 
 export interface Course {
