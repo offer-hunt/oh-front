@@ -5,6 +5,8 @@ import Forbidden from '@/pages/Forbidden';
 import Home from '@/pages/Home';
 import Login from '@/pages/Login';
 import Protected from '@/pages/Protected';
+import Callback from '@/pages/Callback';
+import AuthErrorPage from '@/pages/AuthErrorPage';
 
 import AuthPage from '@/auth/pages/AuthPage';
 import RegisterPage from '@/auth/pages/RegisterPage';
@@ -25,17 +27,23 @@ export const router = createBrowserRouter([
     children: [
       { index: true, element: <Home /> },
 
-      // Страница выбора способа входа
-      { path: 'login', element: <Login /> }, // Login = AuthPage
+      // Auth Routes
+      { path: 'login', element: <Login /> },
       { path: 'login/chooser', element: <AuthPage /> },
-
-      // Отдельные сценарии авторизации
       { path: 'login/email', element: <LoginEmailPage /> },
       { path: 'register', element: <RegisterPage /> },
       { path: 'password/recovery', element: <PasswordRecoveryPage /> },
+      
+      // ИСПРАВЛЕНО: Убрали /:token, теперь маршрут ловит и ?token=...
+      { path: 'password/reset', element: <PasswordResetPage /> },
+      // На случай если токен все-таки придет через слэш (опционально)
       { path: 'password/reset/:token', element: <PasswordResetPage /> },
+      
+      // SSO Callback & Errors
+      { path: 'auth/callback', element: <Callback /> },
+      { path: 'auth/error', element: <AuthErrorPage /> },
 
-      // --- Курсы ---
+      // Protected Courses
       {
         path: 'courses',
         element: (
@@ -61,7 +69,6 @@ export const router = createBrowserRouter([
         ),
       },
 
-      // Прогресс (старый защищённый маршрут)
       {
         path: 'protected',
         element: (
