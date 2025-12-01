@@ -1,23 +1,55 @@
-import { useAuth } from 'react-oidc-context';
+import { useAuth } from '@/auth/AuthContext';
 
 export class ForbiddenError extends Error {}
 
+interface FetchOptions extends RequestInit {
+  _retry?: boolean;
+}
+
 export const useApi = () => {
-  const auth = useAuth();
+  // Получаем доступ к внутренним методам контекста (refreshSession)
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const auth = useAuth() as any; 
   const base = (import.meta.env.VITE_BACKEND_API as string) ?? '/api';
 
-  const apiFetch = async <T = unknown>(path: string, init?: RequestInit): Promise<T> => {
+  const apiFetch = async <T = unknown>(path: string, init?: FetchOptions): Promise<T> => {
     const headers = new Headers(init?.headers);
     if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
 
-    const token = auth.user?.access_token;
+    let token = auth.user ? (await auth.getAccessToken()) : null;
     if (token) headers.set('Authorization', `Bearer ${token}`);
 
-    const res = await fetch(`${base}${path}`, { ...init, headers });
+    let res = await fetch(`${base}${path}`, { ...init, headers });
+
+    // Обработка истечения токена (401)
+    if (res.status === 401 && !init?._retry && auth.user) {
+      try {
+        const newToken = await auth.refreshSession();
+        if (newToken) {
+          // Повторяем запрос с новым токеном
+          headers.set('Authorization', `Bearer ${newToken}`);
+          res = await fetch(`${base}${path}`, { 
+            ...init, 
+            headers, 
+            _retry: true 
+          });
+        }
+      } catch (e) {
+        // Refresh failed, user is logged out by context
+        throw new Error('Session expired');
+      }
+    }
 
     if (res.status === 403) throw new ForbiddenError('Forbidden');
     if (res.status === 401) throw new Error('Unauthorized');
-    if (!res.ok) throw new Error(`API error ${res.status}`);
+    if (!res.ok) {
+       let msg = `API error ${res.status}`;
+       try {
+         const json = await res.json();
+         if(json.message) msg = json.message;
+       } catch {}
+       throw new Error(msg);
+    }
 
     const ct = res.headers.get('content-type') || '';
     if (ct.includes('application/json')) return (await res.json()) as T;

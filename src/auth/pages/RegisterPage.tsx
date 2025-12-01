@@ -153,13 +153,17 @@ export default function RegisterPage() {
       alert={alertNode}
       centered
       footer={
-        <button
-          type="button"
-          className="btn btn-text auth-footer__link"
-          onClick={() => navigate('/login')}
-        >
-          Уже есть аккаунт?
-        </button>
+        <div style={{ marginTop: '1rem', fontSize: '0.9rem', color: 'var(--text-secondary)', textAlign: 'center' }}>
+          Уже есть аккаунт?{' '}
+          <button
+            type="button"
+            className="btn btn-text"
+            style={{ fontWeight: 600, color: 'var(--primary)' }}
+            onClick={() => navigate('/login')}
+          >
+            Войти
+          </button>
+        </div>
       }
     >
       <form onSubmit={handleSubmit} noValidate>
@@ -180,9 +184,7 @@ export default function RegisterPage() {
               }
             }}
           />
-          <div className={`name-counter ${nameTooLong ? 'name-counter--warning' : ''}`}>
-            {name.length}/50
-          </div>
+          {/* Счетчик символов удален, ошибка осталась ниже */}
           {nameError && <div className="form-error">{nameError}</div>}
         </div>
 
@@ -235,8 +237,8 @@ export default function RegisterPage() {
           {confirmError && <div className="form-error">{confirmError}</div>}
         </div>
 
-        <button type="submit" className="btn btn-primary" disabled={!canSubmit}>
-          Зарегестрироваться
+        <button type="submit" className="btn btn-primary" disabled={!canSubmit} style={{ width: '100%', marginTop: '1rem' }}>
+          Зарегистрироваться
         </button>
       </form>
     </AuthLayout>

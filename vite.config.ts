@@ -12,6 +12,11 @@ export default defineConfig({
   server: {
     port: 5173,
     open: false,
+      proxy: {
+      '/api': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
+      '/oauth2': { target: 'http://localhost:8080', changeOrigin: true, secure: false },
+      '/login/oauth2': { target: 'http://localhost:8080', changeOrigin: true, secure: false }
+    },
   },
   build: {
     sourcemap: true,

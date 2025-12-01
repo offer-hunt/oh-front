@@ -1,5 +1,5 @@
 import { FormEvent, useState } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 
 import { useAuth } from '@/auth/AuthContext';
 import { AuthLayout } from '@/auth/components/AuthLayout';
@@ -8,7 +8,13 @@ import { logAuthEvent } from '@/auth/logger';
 import { getPasswordRequirementsState, validatePassword } from '@/auth/validation';
 
 export default function PasswordResetPage() {
-  const { token = '' } = useParams<{ token: string }>();
+  // Пытаемся достать токен двумя способами
+  const { token: paramToken } = useParams<{ token: string }>();
+  const [searchParams] = useSearchParams();
+  
+  // Приоритет: токен из пути -> токен из ?token=... -> пустая строка
+  const token = paramToken || searchParams.get('token') || '';
+
   const navigate = useNavigate();
   const { resetPassword, error, isLoading } = useAuth();
 
@@ -35,6 +41,7 @@ export default function PasswordResetPage() {
 
   const canSubmit =
     !isLoading &&
+    !!token && // Проверяем, что токен есть
     !passwordError &&
     !confirmError &&
     password.length > 0 &&
@@ -92,7 +99,7 @@ export default function PasswordResetPage() {
       await resetPassword({ token, password });
       setSuccessMessage('Пароль успешно обновлён.');
       logAuthEvent('Password reset success');
-      navigate('/login', { replace: true });
+      setTimeout(() => navigate('/login', { replace: true }), 2000);
     } catch (err) {
       const msg = (err as Error).message;
       if (msg === 'INVALID_TOKEN') {
@@ -109,6 +116,16 @@ export default function PasswordResetPage() {
         {successMessage || error}
       </div>
     ) : null;
+
+  if (!token) {
+    return (
+      <AuthLayout title="Ошибка" centered>
+        <div className="alert alert--error">
+          Неверная ссылка для восстановления пароля.
+        </div>
+      </AuthLayout>
+    );
+  }
 
   return (
     <AuthLayout
