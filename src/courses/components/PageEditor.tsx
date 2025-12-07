@@ -1,4 +1,6 @@
 import { useState } from 'react';
+import ReactMarkdown from 'react-markdown';
+import remarkGfm from 'remark-gfm';
 import type {
   LessonPage,
   TheoryPageContent,
@@ -230,10 +232,10 @@ export function PageEditor({ page, onUpdate, onSave, notify }: PageEditorProps) 
 
                   {/* MARKDOWN MODE */}
                   {page.theory.mode === 'markdown' && (
-                    <div className="grid h-full min-h-[260px] grid-cols-2 gap-4">
+                    <div className="grid h-full min-h-[400px] grid-cols-2 gap-4">
                       <div className="flex flex-col rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-soft)]">
                         <div className="border-b border-[var(--border-subtle)] px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">
-                          Source
+                          📝 Редактор
                         </div>
                         <textarea
                           className="flex-1 w-full resize-none bg-transparent px-4 py-3 font-mono text-sm leading-relaxed text-[var(--text-primary)] placeholder-[var(--text-tertiary)] focus:outline-none focus:ring-0"
@@ -241,22 +243,47 @@ export function PageEditor({ page, onUpdate, onSave, notify }: PageEditorProps) 
                           onChange={e =>
                             updateTheory({ markdown: e.target.value })
                           }
-                          placeholder="# Заголовок..."
+                          placeholder="# Заголовок&#10;&#10;Введите текст с **markdown** разметкой...&#10;&#10;## Подзаголовок&#10;&#10;- Список&#10;- элементов&#10;&#10;```javascript&#10;const code = 'example';&#10;```"
                         />
                       </div>
                       <div className="flex flex-col rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-soft)]">
                         <div className="border-b border-[var(--border-subtle)] px-4 py-2 text-xs font-bold uppercase tracking-[0.12em] text-[var(--text-tertiary)]">
-                          Preview
+                          👁️ Предпросмотр
                         </div>
-                        <div className="prose prose-sm max-w-none flex-1 overflow-y-auto px-4 py-3 text-[var(--text-primary)]">
+                        <div className="flex-1 overflow-y-auto px-4 py-3">
                           {page.theory.markdown ? (
-                            <div style={{ whiteSpace: 'pre-wrap' }}>
-                              {page.theory.markdown}
+                            <div className="prose prose-sm prose-invert max-w-none text-[var(--text-primary)]">
+                              <ReactMarkdown
+                                remarkPlugins={[remarkGfm]}
+                                components={{
+                                  h1: ({node, ...props}) => <h1 className="text-2xl font-bold mb-4 mt-6 text-[var(--text-primary)] border-b border-[var(--border-subtle)] pb-2" {...props} />,
+                                  h2: ({node, ...props}) => <h2 className="text-xl font-bold mb-3 mt-5 text-[var(--text-primary)]" {...props} />,
+                                  h3: ({node, ...props}) => <h3 className="text-lg font-semibold mb-2 mt-4 text-[var(--text-primary)]" {...props} />,
+                                  p: ({node, ...props}) => <p className="mb-3 text-[var(--text-secondary)] leading-relaxed" {...props} />,
+                                  ul: ({node, ...props}) => <ul className="list-disc list-inside mb-3 text-[var(--text-secondary)] space-y-1" {...props} />,
+                                  ol: ({node, ...props}) => <ol className="list-decimal list-inside mb-3 text-[var(--text-secondary)] space-y-1" {...props} />,
+                                  li: ({node, ...props}) => <li className="text-[var(--text-secondary)]" {...props} />,
+                                  code: ({node, inline, ...props}: any) =>
+                                    inline
+                                      ? <code className="bg-[var(--bg-surface)] px-1.5 py-0.5 rounded text-[var(--primary)] font-mono text-xs border border-[var(--border-subtle)]" {...props} />
+                                      : <code className="block bg-[var(--bg-surface)] p-3 rounded-lg font-mono text-xs overflow-x-auto border border-[var(--border-subtle)] text-[var(--text-primary)]" {...props} />,
+                                  blockquote: ({node, ...props}) => <blockquote className="border-l-4 border-[var(--primary)] pl-4 italic text-[var(--text-secondary)] my-3" {...props} />,
+                                  strong: ({node, ...props}) => <strong className="font-bold text-[var(--text-primary)]" {...props} />,
+                                  em: ({node, ...props}) => <em className="italic text-[var(--text-secondary)]" {...props} />,
+                                  a: ({node, ...props}) => <a className="text-[var(--primary)] hover:underline" {...props} />,
+                                  hr: ({node, ...props}) => <hr className="my-4 border-[var(--border-subtle)]" {...props} />,
+                                }}
+                              >
+                                {page.theory.markdown}
+                              </ReactMarkdown>
                             </div>
                           ) : (
-                            <span className="italic text-[var(--text-tertiary)]">
-                              Предпросмотр...
-                            </span>
+                            <div className="h-full flex items-center justify-center">
+                              <div className="text-center text-[var(--text-tertiary)]">
+                                <div className="text-4xl mb-3 opacity-30">📝</div>
+                                <div className="text-sm italic">Начните вводить markdown...</div>
+                              </div>
+                            </div>
                           )}
                         </div>
                       </div>
