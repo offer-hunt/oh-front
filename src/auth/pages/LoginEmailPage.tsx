@@ -47,7 +47,14 @@ export default function LoginEmailPage() {
     try {
       await loginWithEmail({ email, password });
       setSuccessMessage('Вход выполнен успешно.');
-      navigate('/protected', { replace: true });
+      // Проверяем, есть ли redirect URL
+      const redirectUrl = sessionStorage.getItem('redirectAfterAuth');
+      if (redirectUrl) {
+        sessionStorage.removeItem('redirectAfterAuth');
+        navigate(redirectUrl, { replace: true });
+      } else {
+        navigate('/protected', { replace: true });
+      }
     } catch (err) {
       const msg = (err as Error).message;
       if (msg === 'SERVER_ERROR') {

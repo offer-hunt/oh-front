@@ -17,6 +17,8 @@ import PasswordResetPage from '@/auth/pages/PasswordResetPage';
 import CoursesPage from '@/pages/CoursesPage';
 import CourseCreatePage from '@/pages/CourseCreatePage';
 import CourseEditorPage from '@/pages/CourseEditorPage';
+import CourseDetailPage from '@/pages/CourseDetailPage';
+import AuthorProfilePage from '@/pages/AuthorProfilePage';
 
 import App from './App';
 
@@ -43,7 +45,11 @@ export const router = createBrowserRouter([
       { path: 'auth/callback', element: <Callback /> },
       { path: 'auth/error', element: <AuthErrorPage /> },
 
-      // Protected Courses
+      // Public Catalog Routes
+      { path: 'catalog/:courseId', element: <CourseDetailPage /> },
+      { path: 'authors/:authorId', element: <AuthorProfilePage /> },
+
+      // Protected Courses (для авторов)
       {
         path: 'courses',
         element: (

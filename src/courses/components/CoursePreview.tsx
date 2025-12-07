@@ -4,6 +4,8 @@ import type { Course } from '@/courses/types';
 export function CoursePreview({ course }: { course: Course }) {
     const [activePageId, setActivePageId] = useState<string | null>(null);
 
+    const lessonsCount = course.chapters.reduce((acc, ch) => acc + ch.lessons.length, 0);
+
     // Auto-select first page
     useEffect(() => {
         if (!activePageId && course.chapters[0]?.lessons[0]?.pages[0]) {
@@ -27,7 +29,7 @@ export function CoursePreview({ course }: { course: Course }) {
             <div className="preview-sidebar w-full md:w-64 bg-white border-r border-gray-200 overflow-y-auto flex-shrink-0">
                 <div className="p-4 border-b border-gray-100">
                     <div className="font-bold text-gray-900">{course.title}</div>
-                    <div className="text-xs text-gray-500 mt-1">{course.lessonsCount || 0} уроков</div>
+                    <div className="text-xs text-gray-500 mt-1">{lessonsCount || 0} уроков</div>
                 </div>
                 <div className="p-2">
                     {course.chapters.map((ch, i) => (

@@ -1,5 +1,7 @@
 export type CourseStatus = 'draft' | 'published' | 'archived';
 
+export type CourseAccessType = 'public' | 'private_link';
+
 export type PageKind = 'theory' | 'quiz' | 'code' | 'detailed';
 
 export type AiTextMode = 'simplify' | 'academic' | 'grammar' | 'expand' | 'example';
@@ -90,6 +92,7 @@ export interface Lesson {
   id: string;
   title: string;
   pages: LessonPage[];
+  isDemoAvailable?: boolean; // Доступен для предпросмотра без записи
 }
 
 export interface Chapter {
@@ -109,6 +112,13 @@ export interface Collaborator {
   isPending?: boolean;
 }
 
+export interface CourseAuthor {
+  id: string;
+  name: string;
+  email: string;
+  avatar?: string;
+}
+
 export interface VersionSnapshot {
   id: string;
   createdAt: string;
@@ -120,6 +130,7 @@ export interface VersionSnapshot {
 export interface Course {
   id: string;
   ownerId?: string;
+  author?: CourseAuthor; // Информация об авторе для публичного отображения
   title: string;
   description: string;
   duration?: string;
@@ -129,6 +140,8 @@ export interface Course {
   } | null;
   tags: string[];
   status: CourseStatus;
+  accessType?: CourseAccessType; // Публичный или по ссылке
+  enrollmentsCount?: number; // Количество записавшихся
   createdAt: string;
   updatedAt: string;
   chapters: Chapter[];
@@ -139,7 +152,16 @@ export interface Course {
 export interface CourseSummary {
   id: string;
   title: string;
+  description?: string;
+  author?: CourseAuthor;
   status: CourseStatus;
+  tags: string[];
+  duration?: string;
+  enrollmentsCount?: number;
+  cover?: {
+    name: string;
+    size: number;
+  } | null;
   createdAt: string;
   updatedAt: string;
   lessonsCount: number;
@@ -155,4 +177,28 @@ export interface CreateCourseInput {
     name: string;
     size: number;
   } | null;
+}
+
+// Типы для поиска и фильтрации
+export interface CourseFilters {
+  languages?: string[]; // Языки программирования
+  technologies?: string[]; // Технологии
+  difficulty?: string[]; // Сложность (Junior, Middle, Senior)
+  duration?: string[]; // Длительность
+}
+
+export interface CourseSearchParams {
+  q?: string; // Текстовый поиск
+  filters?: CourseFilters;
+  authorId?: string; // Для просмотра курсов автора
+}
+
+// Типы для enrollment (записи на курс)
+export interface EnrollmentStatus {
+  isEnrolled: boolean;
+  enrolledAt?: string;
+}
+
+export interface CourseWithEnrollment extends Course {
+  enrollment?: EnrollmentStatus;
 }

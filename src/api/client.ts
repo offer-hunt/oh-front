@@ -2,8 +2,9 @@ import { useAuth } from '@/auth/AuthContext';
 
 export class ForbiddenError extends Error {}
 
-interface FetchOptions extends RequestInit {
+interface FetchOptions extends Omit<RequestInit, 'headers'> {
   _retry?: boolean;
+  headers?: HeadersInit;
 }
 
 export const useApi = () => {
@@ -13,25 +14,25 @@ export const useApi = () => {
   const base = (import.meta.env.VITE_BACKEND_API as string) ?? '/api';
 
   const apiFetch = async <T = unknown>(path: string, init?: FetchOptions): Promise<T> => {
-    const headers = new Headers(init?.headers);
+    const { _retry, ...fetchInit } = init || {};
+    const headers = new Headers(fetchInit?.headers);
     if (!headers.has('Content-Type')) headers.set('Content-Type', 'application/json');
 
     let token = auth.user ? (await auth.getAccessToken()) : null;
     if (token) headers.set('Authorization', `Bearer ${token}`);
 
-    let res = await fetch(`${base}${path}`, { ...init, headers });
+    let res = await fetch(`${base}${path}`, { ...fetchInit, headers });
 
     // Обработка истечения токена (401)
-    if (res.status === 401 && !init?._retry && auth.user) {
+    if (res.status === 401 && !_retry && auth.user) {
       try {
         const newToken = await auth.refreshSession();
         if (newToken) {
           // Повторяем запрос с новым токеном
           headers.set('Authorization', `Bearer ${newToken}`);
-          res = await fetch(`${base}${path}`, { 
-            ...init, 
-            headers, 
-            _retry: true 
+          res = await fetch(`${base}${path}`, {
+            ...fetchInit,
+            headers,
           });
         }
       } catch (e) {

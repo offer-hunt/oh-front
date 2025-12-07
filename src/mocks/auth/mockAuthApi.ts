@@ -2,9 +2,11 @@ import type {
   AuthApi,
   AuthProviderType,
   AuthSession,
+  AuthUser,
   LoginInput,
   PasswordResetInput,
   RegisterInput,
+  TokenResponse,
 } from '@/auth/types';
 import { logAuthEvent } from '@/auth/logger';
 
@@ -28,6 +30,7 @@ function delay<T>(value: T, ms = 400): Promise<T> {
 function createSession(user: UserRecord): AuthSession {
   // В реальном мире accessToken был бы JWT. Здесь — просто строка.
   const accessToken = `mock-token-${user.id}-${Date.now()}`;
+  const refreshToken = `mock-refresh-${user.id}-${Date.now()}`;
   return {
     user: {
       id: user.id,
@@ -36,11 +39,13 @@ function createSession(user: UserRecord): AuthSession {
       provider: user.provider,
     },
     accessToken,
+    refreshToken,
+    expiresIn: 3600,
   };
 }
 
 const mockAuthApi: AuthApi = {
-  async register(input: RegisterInput): Promise<AuthSession> {
+  async register(input: RegisterInput): Promise<void> {
     const email = input.email.toLowerCase();
     // Имитируем ошибку сервера для особого email.
     if (email === 'server-error@example.com') {
@@ -63,7 +68,7 @@ const mockAuthApi: AuthApi = {
     users.set(email, user);
     logAuthEvent('Registration success', { email });
 
-    return delay(createSession(user));
+    return delay(undefined);
   },
 
   async loginWithEmail(input: LoginInput): Promise<AuthSession> {
@@ -86,79 +91,49 @@ const mockAuthApi: AuthApi = {
     return delay(createSession(user));
   },
 
-  async oauthLogin(provider: AuthProviderType): Promise<AuthSession> {
-    const eventPrefix = provider === 'google' ? 'Google' : 'GitHub';
-
-    // Отмена входа/ошибка доступа для спец-провайдера имитируется,
-    // если в localStorage лежит флаг.
-    const denyKey = `mock-oauth-deny-${provider}`;
-    if (localStorage.getItem(denyKey) === '1') {
-      localStorage.removeItem(denyKey);
-      logAuthEvent(
-        (provider === 'google'
-          ? 'Google OAuth failed – access denied'
-          : 'GitHub OAuth failed – access denied') as never,
-      );
-      throw new Error('ACCESS_DENIED');
-    }
-
-    // Условный "профиль" от внешнего провайдера
-    const profileEmail = `${provider}-user@example.com`;
-    const profileName = provider === 'google' ? 'Google User' : 'GitHub User';
-
+  async oauthLogin(provider: AuthProviderType): Promise<void> {
+    // В моковой реализации просто имитируем редирект
+    // В реальном API это вызовет window.location.href = ...
     logAuthEvent(
       (provider === 'google'
-        ? 'Google OAuth success – data received'
-        : 'GitHub OAuth success – data received') as never,
-      { email: profileEmail },
+        ? 'Google OAuth initiated'
+        : 'GitHub OAuth initiated') as never
     );
+    await delay(undefined);
+  },
 
-    // Ошибка БД
-    if (profileEmail === 'oauth-db-error@example.com') {
-      logAuthEvent(
-        (provider === 'google'
-          ? 'Google OAuth failed – db error'
-          : 'GitHub OAuth failed – db error') as never,
-      );
-      throw new Error('DB_ERROR');
+  async refreshToken(refreshToken: string): Promise<TokenResponse> {
+    // В моке просто генерируем новые токены
+    await delay(undefined, 200);
+    return {
+      token_type: 'Bearer',
+      access_token: `mock-refreshed-${Date.now()}`,
+      refresh_token: `mock-refresh-${Date.now()}`,
+      expires_in: 3600,
+    };
+  },
+
+  async getMe(accessToken: string): Promise<AuthUser> {
+    // Извлекаем userId из токена (в моке это просто строка)
+    // В реальном API это был бы декодированный JWT
+    const match = accessToken.match(/mock-token-(\d+)-/);
+    if (!match) {
+      throw new Error('INVALID_TOKEN');
     }
 
-    let user = users.get(profileEmail);
-    if (user) {
-      logAuthEvent(
-        (provider === 'google'
-          ? 'Google OAuth success – existing user'
-          : 'GitHub OAuth success – existing user') as never,
-        { email: profileEmail },
-      );
-      return delay(createSession(user));
+    const userId = match[1];
+    const user = Array.from(users.values()).find(u => u.id === userId);
+
+    if (!user) {
+      throw new Error('USER_NOT_FOUND');
     }
 
-    // создаём нового пользователя
-    try {
-      user = {
-        id: String(idCounter++),
-        name: profileName,
-        email: profileEmail,
-        provider,
-      };
-      users.set(profileEmail, user);
-      logAuthEvent(
-        (provider === 'google'
-          ? 'Google OAuth success – new user'
-          : 'GitHub OAuth success – new user') as never,
-        { email: profileEmail },
-      );
-      return delay(createSession(user));
-    } catch (e) {
-      logAuthEvent(
-        (provider === 'google'
-          ? 'Google OAuth failed – insert error'
-          : 'GitHub OAuth failed – insert error') as never,
-        e,
-      );
-      throw new Error('INSERT_ERROR');
-    }
+    return delay({
+      id: user.id,
+      name: user.name,
+      email: user.email,
+      provider: user.provider,
+    });
   },
 
   async requestPasswordRecovery(emailRaw: string): Promise<void> {

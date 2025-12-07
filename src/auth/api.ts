@@ -17,10 +17,10 @@ async function handleResponse<T>(res: Response): Promise<T> {
     const errorMessage = errorData?.code || errorData?.message || `Error ${res.status}`;
     throw new Error(errorMessage);
   }
-  
+
   // Обработка пустого ответа (например 200 OK без тела)
   const text = await res.text();
-  return text ? JSON.parse(text) : null;
+  return (text ? JSON.parse(text) : undefined) as T;
 }
 
 const realAuthApi: AuthApi = {
