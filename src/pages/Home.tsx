@@ -62,139 +62,147 @@ export default function Home() {
   );
 
   return (
-    <div className="container" style={{ paddingTop: '2rem', paddingBottom: '3rem' }}>
-      {/* Заголовок и поиск */}
-      <div
-        style={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'center',
-          marginBottom: '2rem',
-        }}
-      >
-        <div>
-          <h1 style={{ marginBottom: '0.5rem' }}>Каталог курсов</h1>
-          {searchQuery && (
-            <p style={{ color: 'var(--text-secondary)' }}>
-              Результаты по запросу: "{searchQuery}"
-            </p>
-          )}
-        </div>
-        <button
-          className="btn btn-outline"
-          onClick={() => setIsSearchModalOpen(true)}
-        >
-          🔍 Поиск
-        </button>
-      </div>
-
-      {/* Активные фильтры */}
-      {(hasActiveFilters || searchQuery) && (
+    <div className="page-section">
+      <div className="container">
+        {/* Заголовок и поиск */}
         <div
           style={{
-            marginBottom: '1.5rem',
             display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'flex-start',
+            marginBottom: '2.5rem',
+            gap: '2rem',
             flexWrap: 'wrap',
-            gap: '0.5rem',
-            alignItems: 'center',
           }}
         >
-          {Object.entries(activeFilters).map(([category, values]) =>
-            values?.map((value: string) => (
-              <span
-                key={`${category}-${value}`}
-                className="ai-badge"
-                style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  gap: '0.5rem',
-                  padding: '0.5rem 0.75rem',
-                  background: 'var(--primary)',
-                  color: 'white',
-                  cursor: 'pointer',
-                }}
-                onClick={() => removeFilter(category as keyof CourseFilters, value)}
+          <div style={{ flex: '1 1 auto', minWidth: '250px' }}>
+            <h1 style={{ marginBottom: '0.75rem' }}>Каталог курсов</h1>
+            {searchQuery && (
+              <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>
+                Результаты по запросу: <strong>"{searchQuery}"</strong>
+              </p>
+            )}
+          </div>
+          <button
+            className="btn btn-primary"
+            onClick={() => setIsSearchModalOpen(true)}
+            style={{ fontSize: '1rem', padding: '0 1.5rem', height: '44px' }}
+          >
+            <span style={{ marginRight: '0.5rem' }}>🔍</span>
+            Поиск и фильтры
+          </button>
+        </div>
+
+        {/* Активные фильтры */}
+        {(hasActiveFilters || searchQuery) && (
+          <div
+            style={{
+              marginBottom: '2rem',
+              display: 'flex',
+              flexWrap: 'wrap',
+              gap: '0.75rem',
+              alignItems: 'center',
+            }}
+          >
+            {Object.entries(activeFilters).map(([category, values]) =>
+              values?.map((value: string) => (
+                <button
+                  key={`${category}-${value}`}
+                  className="ai-badge"
+                  style={{
+                    cursor: 'pointer',
+                    transition: 'all 150ms ease-out',
+                    fontSize: '0.9375rem',
+                    padding: '0.5rem 1rem',
+                  }}
+                  onClick={() => removeFilter(category as keyof CourseFilters, value)}
+                  onMouseEnter={(e) => {
+                    e.currentTarget.style.transform = 'translateY(-1px)';
+                    e.currentTarget.style.boxShadow = '0 4px 12px rgba(99, 102, 241, 0.3)';
+                  }}
+                  onMouseLeave={(e) => {
+                    e.currentTarget.style.transform = 'translateY(0)';
+                    e.currentTarget.style.boxShadow = 'none';
+                  }}
+                >
+                  {value}
+                  <span style={{ marginLeft: '0.5rem', fontWeight: 'bold', fontSize: '1.125rem' }}>×</span>
+                </button>
+              ))
+            )}
+            {(hasActiveFilters || searchQuery) && (
+              <button
+                className="btn btn-ghost"
+                onClick={clearAllFilters}
+                style={{ color: 'var(--danger)', padding: '0.5rem 1rem' }}
               >
-                {value}
-                <span style={{ fontWeight: 'bold' }}>×</span>
-              </span>
-            ))
-          )}
-          {(hasActiveFilters || searchQuery) && (
-            <button
-              className="btn btn-text"
-              onClick={clearAllFilters}
-              style={{ padding: '0.5rem', color: 'var(--error)' }}
-            >
-              Сбросить все
-            </button>
-          )}
-        </div>
-      )}
+                Сбросить все
+              </button>
+            )}
+          </div>
+        )}
 
-      {/* Контент */}
-      {loading ? (
-        <div
-          style={{
-            textAlign: 'center',
-            padding: '3rem',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <p>Загрузка...</p>
-        </div>
-      ) : error ? (
-        <div
-          className="page-content"
-          style={{
-            textAlign: 'center',
-            padding: '3rem',
-            color: 'var(--error)',
-          }}
-        >
-          <p>{error}</p>
-        </div>
-      ) : courses.length === 0 ? (
-        <div
-          className="page-content"
-          style={{
-            textAlign: 'center',
-            padding: '3rem',
-            color: 'var(--text-secondary)',
-          }}
-        >
-          <p>
-            {searchQuery || hasActiveFilters
-              ? hasActiveFilters && searchQuery
-                ? 'По вашему запросу и фильтрам ничего не найдено.'
-                : searchQuery
-                ? 'Такого у нас ещё нет. Попробуйте изменить запрос.'
-                : 'По таким параметрам курсов нет. Попробуйте изменить фильтры.'
-              : 'Курсов пока нет. Возвращайтесь к нам позже)'}
-          </p>
-        </div>
-      ) : (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(auto-fill, minmax(300px, 1fr))',
-            gap: '1.5rem',
-          }}
-        >
-          {courses.map((course) => (
-            <CourseCard key={course.id} course={course} />
-          ))}
-        </div>
-      )}
+        {/* Контент */}
+        {loading ? (
+          <div className="page-content"
+            style={{
+              textAlign: 'center',
+              padding: '4rem 2rem',
+            }}
+          >
+            <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>Загрузка...</p>
+          </div>
+        ) : error ? (
+          <div
+            className="page-content"
+            style={{
+              textAlign: 'center',
+              padding: '4rem 2rem',
+            }}
+          >
+            <p className="text-lg" style={{ color: 'var(--danger)' }}>{error}</p>
+          </div>
+        ) : courses.length === 0 ? (
+          <div
+            className="page-content"
+            style={{
+              textAlign: 'center',
+              padding: '4rem 2rem',
+            }}
+          >
+            <p className="text-lg" style={{ color: 'var(--text-secondary)' }}>
+              {searchQuery || hasActiveFilters
+                ? hasActiveFilters && searchQuery
+                  ? 'По вашему запросу и фильтрам ничего не найдено.'
+                  : searchQuery
+                  ? 'Такого у нас ещё нет. Попробуйте изменить запрос.'
+                  : 'По таким параметрам курсов нет. Попробуйте изменить фильтры.'
+                : 'Курсов пока нет. Возвращайтесь к нам позже)'}
+            </p>
+          </div>
+        ) : (
+          <div
+            style={{
+              display: 'grid',
+              gridTemplateColumns: 'repeat(auto-fill, minmax(320px, 1fr))',
+              gap: '2rem',
+            }}
+          >
+            {courses.map((course) => (
+              <CourseCard key={course.id} course={course} />
+            ))}
+          </div>
+        )}
 
-      {/* Модальное окно поиска */}
-      <SearchModal
-        isOpen={isSearchModalOpen}
-        onClose={() => setIsSearchModalOpen(false)}
-        onSearch={handleSearch}
-        initialQuery={searchQuery}
-        initialFilters={activeFilters}
-      />
+        {/* Модальное окно поиска */}
+        <SearchModal
+          isOpen={isSearchModalOpen}
+          onClose={() => setIsSearchModalOpen(false)}
+          onSearch={handleSearch}
+          initialQuery={searchQuery}
+          initialFilters={activeFilters}
+        />
+      </div>
     </div>
   );
 }

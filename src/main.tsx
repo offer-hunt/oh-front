@@ -8,6 +8,7 @@ import { AuthProvider } from '@/auth/AuthContext';
 
 import { router } from './routes';
 import './styles.css';
+import '@/courses/seed'; // Регистрирует window.seedCourses для разработки
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
