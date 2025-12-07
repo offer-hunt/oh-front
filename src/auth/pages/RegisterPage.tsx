@@ -82,7 +82,14 @@ export default function RegisterPage() {
     try {
       await register({ name, email, password });
       setSuccessMessage('Регистрация успешна!');
-      navigate('/protected', { replace: true });
+      // Проверяем, есть ли redirect URL
+      const redirectUrl = sessionStorage.getItem('redirectAfterAuth');
+      if (redirectUrl) {
+        sessionStorage.removeItem('redirectAfterAuth');
+        navigate(redirectUrl, { replace: true });
+      } else {
+        navigate('/protected', { replace: true });
+      }
     } catch (err) {
       const errMessage = (err as Error).message;
       if (errMessage === 'SERVER_ERROR') {

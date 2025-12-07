@@ -14,30 +14,31 @@ export default function App() {
   }
 
   return (
-    <div className="flex flex-col h-full">
-      <header className="app-nav">
-        <div className="flex items-center">
-          <div className="app-nav__logo">AI-Hunt</div>
-          <nav className="app-nav__links">
-            <Link to="/" className="app-nav__link">Главная</Link>
-            {isAuthenticated && <Link to="/courses" className="app-nav__link">Курсы</Link>}
-            <Link to="/protected" className="app-nav__link">Прогресс</Link>
-          </nav>
-        </div>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <header className="app-nav" style={{ justifyContent: 'space-between' }}>
+        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', maxWidth: '100%', padding: 0 }}>
+          <div style={{ display: 'flex', alignItems: 'center' }}>
+            <div className="app-nav__logo">AI-Hunt</div>
+            <nav className="app-nav__links">
+              <Link to="/" className="app-nav__link">Каталог</Link>
+              {isAuthenticated && <Link to="/courses" className="app-nav__link">Мои курсы</Link>}
+            </nav>
+          </div>
 
-        <div className="flex items-center gap-4">
-          {isAuthenticated ? (
-            <span className="app-nav__user">
-              <span style={{opacity: 0.5, marginRight: 8}}>Пользователь:</span>
-              {user?.name || user?.email}
-            </span>
-          ) : (
-            <Link to="/login" className="btn btn-primary btn-sm">Войти</Link>
-          )}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+            {isAuthenticated ? (
+              <span className="app-nav__user">
+                <span style={{opacity: 0.6, marginRight: 4}}>👤</span>
+                {user?.name || user?.email}
+              </span>
+            ) : (
+              <Link to="/login" className="btn btn-primary btn-sm">Войти</Link>
+            )}
+          </div>
         </div>
       </header>
 
-      <main className="flex-1 overflow-auto bg-[var(--bg-app)]">
+      <main style={{ flex: 1, overflowY: 'auto' }}>
         <Outlet />
       </main>
     </div>

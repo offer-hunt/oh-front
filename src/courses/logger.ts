@@ -50,7 +50,8 @@ export type CourseEventName =
   | 'AI test generation insufficient context'
   | 'AI code task generation success'
   | 'AI code task generation invalid parameters'
-  | 'Learning & Progress Service connection error – ошибка пересчёта статистики';
+  | 'Learning & Progress Service connection error – ошибка пересчёта статистики'
+  | 'User enrolled';
 
 export function logCourseEvent(event: CourseEventName, payload?: unknown) {
   // Пока просто логируем в консоль. Дальше можно прокинуть в аналитику.
