@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { courseApi } from '@/courses/api';
 import { generateId } from '@/courses/storage';
-import type { Course, LessonPage, PageKind, VersionSnapshot } from '@/courses/types';
+import type { Course, LessonPage, PageKind, VersionSnapshot, Chapter } from '@/courses/types';
 
 import { CourseStructure } from '@/courses/components/CourseStructure';
 import { PageEditor } from '@/courses/components/PageEditor';
@@ -71,9 +71,40 @@ export default function CourseEditorPage() {
   // --- Создание ---
   const handleAddChapter = (title: string) => {
     if (!course) return;
-    const newCh = { id: generateId('ch'), title, lessons: [] };
+    const newCh = { id: generateId('ch'), title, description: '', lessons: [] };
     handleUpdateCourse({ ...course, chapters: [...course.chapters, newCh] });
     notify('Глава добавлена');
+  };
+
+  const handleUpdateChapter = (chapterId: string, updates: Partial<Chapter>) => {
+    if (!course) return;
+    const newChapters = course.chapters.map(ch =>
+      ch.id === chapterId ? { ...ch, ...updates } : ch
+    );
+    handleUpdateCourse({ ...course, chapters: newChapters });
+    notify('Глава обновлена');
+  };
+
+  const handleDeleteChapter = (chapterId: string) => {
+    if (!course) return;
+    const chapter = course.chapters.find(ch => ch.id === chapterId);
+    if (!chapter) return;
+
+    const lessonCount = chapter.lessons.length;
+    const confirmMsg = lessonCount > 0
+      ? `Удалить главу "${chapter.title}" и все ${lessonCount} уроков внутри?`
+      : `Удалить главу "${chapter.title}"?`;
+
+    if (confirm(confirmMsg)) {
+      const newChapters = course.chapters.filter(ch => ch.id !== chapterId);
+      handleUpdateCourse({ ...course, chapters: newChapters });
+      if (selChapterId === chapterId) {
+        setSelChapterId(null);
+        setSelLessonId(null);
+        setSelPageId(null);
+      }
+      notify('Глава удалена');
+    }
   };
 
   const handleAddLesson = (title: string) => {
@@ -237,6 +268,8 @@ export default function CourseEditorPage() {
                     onSelectLesson={selectLessonFully}
                     onSelectPage={selectPageFully}
                     onAddChapter={handleAddChapter}
+                    onUpdateChapter={handleUpdateChapter}
+                    onDeleteChapter={handleDeleteChapter}
                     onAddLesson={handleAddLesson}
                     onAddPage={handleAddPage}
                     onDeleteLesson={handleDeleteLesson}
@@ -289,7 +322,7 @@ export default function CourseEditorPage() {
           )}
 
           {tab === 'preview' && (
-              <div className="content-area" style={{padding: 0, background: '#000'}}>
+              <div className="flex-1 overflow-hidden" style={{background: 'var(--bg-primary)'}}>
                   <CoursePreview course={course} />
               </div>
           )}
