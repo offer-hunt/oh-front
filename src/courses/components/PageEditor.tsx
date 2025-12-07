@@ -243,7 +243,7 @@ export function PageEditor({ page, onUpdate, onSave, notify }: PageEditorProps) 
                           onChange={e =>
                             updateTheory({ markdown: e.target.value })
                           }
-                          placeholder="# Заголовок&#10;&#10;Введите текст с **markdown** разметкой...&#10;&#10;## Подзаголовок&#10;&#10;- Список&#10;- элементов&#10;&#10;```javascript&#10;const code = 'example';&#10;```"
+                          placeholder={"# Заголовок\n\nВведите текст с **markdown** разметкой...\n\n## Подзаголовок\n\n- Список\n- элементов\n\n```javascript\nconst code = 'example';\n```"}
                         />
                       </div>
                       <div className="flex flex-col rounded-[var(--radius-md)] border border-[var(--border-subtle)] bg-[var(--bg-surface-soft)]">

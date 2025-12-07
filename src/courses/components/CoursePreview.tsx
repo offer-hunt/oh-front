@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import type { Course } from '@/courses/types';
+import type { Course, LessonPage } from '@/courses/types';
 import { Icons } from '@/components/Icons';
 
 export function CoursePreview({ course }: { course: Course }) {
@@ -15,13 +15,20 @@ export function CoursePreview({ course }: { course: Course }) {
 
     // Auto-select first page
     useEffect(() => {
-        if (!activePageId && course.chapters[0]?.lessons[0]?.pages[0]) {
-            setActivePageId(course.chapters[0].lessons[0].pages[0].id);
+        if (!activePageId) {
+            for (const ch of course.chapters) {
+                for (const l of ch.lessons) {
+                    if (l.pages[0]) {
+                        setActivePageId(l.pages[0].id);
+                        return;
+                    }
+                }
+            }
         }
     }, [course, activePageId]);
 
     // Find active page data
-    let activePage = null;
+    let activePage: LessonPage | null = null;
     let activeLesson = null;
     let activeChapter = null;
     for(const ch of course.chapters) {
@@ -51,8 +58,37 @@ export function CoursePreview({ course }: { course: Course }) {
 
     const progress = pagesCount > 0 ? Math.round((completedPages.size / pagesCount) * 100) : 0;
 
+    // Если курс пустой
+    if (pagesCount === 0) {
+        return (
+            <div className="h-full flex items-center justify-center bg-[var(--bg-surface)]">
+                <div className="text-center max-w-md mx-auto p-8">
+                    <div className="text-6xl mb-6 opacity-30">📚</div>
+                    <h2 className="text-2xl font-bold text-[var(--text-primary)] mb-4">Курс пока пустой</h2>
+                    <p className="text-[var(--text-secondary)] mb-6">
+                        Добавьте главы, уроки и страницы в редакторе контента, чтобы увидеть предпросмотр курса.
+                    </p>
+                    <div className="flex flex-col gap-2 text-sm text-[var(--text-tertiary)]">
+                        <div className="flex items-center gap-2 justify-center">
+                            <span>📖</span>
+                            <span>{course.chapters.length} глав</span>
+                        </div>
+                        <div className="flex items-center gap-2 justify-center">
+                            <span>📁</span>
+                            <span>{lessonsCount} уроков</span>
+                        </div>
+                        <div className="flex items-center gap-2 justify-center">
+                            <span>📄</span>
+                            <span>{pagesCount} страниц</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     return (
-        <div className="preview-frame flex flex-col h-full bg-[var(--bg-primary)]">
+        <div className="h-full flex flex-col bg-[var(--bg-primary)]">
             {/* Top bar with progress */}
             <div className="bg-[var(--bg-surface)] border-b border-[var(--border-subtle)] px-6 py-4 flex items-center justify-between shadow-sm">
                 <div className="flex-1">
@@ -79,7 +115,7 @@ export function CoursePreview({ course }: { course: Course }) {
 
             <div className="flex flex-1 overflow-hidden">
                 {/* Sidebar */}
-                <div className="preview-sidebar w-80 bg-[var(--bg-surface)] border-r border-[var(--border-subtle)] overflow-y-auto flex-shrink-0">
+                <div className="w-80 bg-[var(--bg-surface)] border-r border-[var(--border-subtle)] overflow-y-auto flex-shrink-0">
                     <div className="p-4">
                         {course.chapters.map((ch, i) => (
                             <div key={ch.id} className="mb-6">
@@ -134,7 +170,7 @@ export function CoursePreview({ course }: { course: Course }) {
                 </div>
 
                 {/* Content */}
-                <div className="preview-content flex-1 bg-[var(--bg-surface)] overflow-y-auto">
+                <div className="flex-1 bg-[var(--bg-surface)] overflow-y-auto">
                     {!activePage ? (
                         <div className="flex h-full items-center justify-center text-[var(--text-tertiary)]">
                             <div className="text-center">

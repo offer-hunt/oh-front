@@ -322,7 +322,7 @@ export default function CourseEditorPage() {
           )}
 
           {tab === 'preview' && (
-              <div className="content-area" style={{padding: 0, background: '#000'}}>
+              <div className="flex-1 overflow-hidden" style={{background: 'var(--bg-primary)'}}>
                   <CoursePreview course={course} />
               </div>
           )}
