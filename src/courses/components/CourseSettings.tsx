@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import type { Course, CollaboratorRole } from '@/courses/types';
 import { validateTags, validateCourseTitle, validateCourseDescription } from '@/courses/validation';
+import { Icons } from '@/components/Icons';
 
 interface CourseSettingsProps {
   course: Course;
@@ -11,10 +12,62 @@ interface CourseSettingsProps {
   notify: (msg: string, type?: 'success'|'error') => void;
 }
 
+interface PublishValidationError {
+  field: string;
+  message: string;
+}
+
+function validateCourseForPublish(course: Course): PublishValidationError[] {
+  const errors: PublishValidationError[] = [];
+
+  // UC 11.2: Check title and description
+  if (!course.title || course.title.trim().length < 10) {
+    errors.push({ field: 'title', message: 'Добавьте название курса (минимум 10 символов)' });
+  }
+
+  if (!course.description || course.description.trim().length === 0) {
+    errors.push({ field: 'description', message: 'Добавьте описание курса' });
+  }
+
+  // UC 11.2: Check cover
+  if (!course.cover) {
+    errors.push({ field: 'cover', message: 'Добавьте обложку курса' });
+  }
+
+  // UC 11.2: Check at least one published lesson
+  const hasLessons = course.chapters.some(ch => ch.lessons.length > 0);
+  if (!hasLessons) {
+    errors.push({ field: 'content', message: 'Добавьте хотя бы один урок' });
+  }
+
+  // UC 11.2: Check all lessons have required fields
+  for (const chapter of course.chapters) {
+    for (const lesson of chapter.lessons) {
+      if (!lesson.title || lesson.title.trim().length === 0) {
+        errors.push({
+          field: 'lessons',
+          message: `Урок без названия в главе "${chapter.title}"`
+        });
+      }
+      if (lesson.pages.length === 0) {
+        errors.push({
+          field: 'lessons',
+          message: `Урок "${lesson.title}" не содержит страниц`
+        });
+      }
+    }
+  }
+
+  return errors;
+}
+
 export function CourseSettings({ course, onUpdate, onPublish, onArchive, onDelete, notify }: CourseSettingsProps) {
   const [tagInput, setTagInput] = useState('');
   const [collabEmail, setCollabEmail] = useState('');
   const [collabRole, setCollabRole] = useState<CollaboratorRole>('author');
+  const [showPublishErrors, setShowPublishErrors] = useState(false);
+
+  const publishValidationErrors = validateCourseForPublish(course);
 
   const handleMetaChange = (field: keyof Course, value: string) => {
     onUpdate({ ...course, [field]: value });
@@ -46,6 +99,16 @@ export function CourseSettings({ course, onUpdate, onPublish, onArchive, onDelet
     onUpdate({ ...course, collaborators: [...course.collaborators, newCollab] });
     setCollabEmail('');
     notify(`Приглашение отправлено ${newCollab.email}`, 'success');
+  };
+
+  const handlePublishClick = () => {
+    if (publishValidationErrors.length > 0) {
+      setShowPublishErrors(true);
+      notify('Курс не готов к публикации', 'error');
+      return;
+    }
+    onPublish();
+    setShowPublishErrors(false);
   };
 
   return (
@@ -113,17 +176,47 @@ export function CourseSettings({ course, onUpdate, onPublish, onArchive, onDelet
               </div>
 
               <h3 className="font-bold border-b pb-2 mb-4">Управление статусом</h3>
+
+              {/* Publication Readiness Check */}
+              {course.status !== 'published' && publishValidationErrors.length > 0 && showPublishErrors && (
+                <div className="mb-4 p-4 rounded-lg bg-[var(--danger-soft)] border border-[var(--danger)]">
+                  <div className="flex items-start gap-2 mb-2">
+                    <Icons.AlertTriangle width={18} height={18} className="text-[var(--danger)] mt-0.5" />
+                    <div className="flex-1">
+                      <div className="font-semibold text-[var(--danger)] mb-1">Курс не готов к публикации</div>
+                      <ul className="list-disc list-inside space-y-1 text-sm text-[var(--danger)]">
+                        {publishValidationErrors.map((err, idx) => (
+                          <li key={idx}>{err.message}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              )}
+
               <div className="flex flex-col gap-3">
                   {course.status !== 'published' ? (
-                       <button className="btn btn-primary w-full justify-center" onClick={onPublish}>🚀 Опубликовать курс</button>
+                       <button className="btn btn-primary w-full justify-center" onClick={handlePublishClick}>
+                         <Icons.CheckCircle width={18} height={18} />
+                         Опубликовать курс
+                       </button>
                   ) : (
-                       <div className="text-center p-2 bg-green-50 text-green-700 rounded border border-green-200 mb-2">Курс опубликован</div>
+                       <div className="text-center p-3 bg-green-50 text-green-700 rounded border border-green-200 mb-2 flex items-center justify-center gap-2">
+                         <Icons.CheckCircle width={18} height={18} />
+                         Курс опубликован
+                       </div>
                   )}
 
-                  <button className="btn btn-outline w-full justify-center" onClick={onArchive}>📁 Архивация</button>
+                  <button className="btn btn-outline w-full justify-center" onClick={onArchive}>
+                    <Icons.Archive width={18} height={18} />
+                    Архивация
+                  </button>
 
                   <div className="pt-4 border-t mt-2">
-                      <button className="btn btn-danger w-full justify-center" onClick={onDelete}>🗑 Удалить курс навсегда</button>
+                      <button className="btn btn-danger w-full justify-center" onClick={onDelete}>
+                        <Icons.Trash width={18} height={18} />
+                        Удалить курс навсегда
+                      </button>
                   </div>
               </div>
           </div>

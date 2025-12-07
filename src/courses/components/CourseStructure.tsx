@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import type { Course } from '@/courses/types';
+import type { Course, Chapter } from '@/courses/types';
 import { Icons } from '@/components/Icons';
 
 interface CourseStructureProps {
@@ -15,6 +15,8 @@ interface CourseStructureProps {
   onAddPage: (title: string, kind: string) => void;
   onDeleteLesson: (id: string) => void;
   onDeletePage: (id: string) => void;
+  onUpdateChapter?: (chapterId: string, updates: Partial<Chapter>) => void;
+  onDeleteChapter?: (chapterId: string) => void;
 
   // Сортировка
   onMoveChapter: (idx: number, dir: -1 | 1) => void;
@@ -35,15 +37,36 @@ export function CourseStructure({
   onAddPage,
   onDeleteLesson,
   onDeletePage,
+  onUpdateChapter,
+  onDeleteChapter,
   onMoveChapter,
   onMoveLesson,
   onMovePage
 }: CourseStructureProps) {
   const [isAddingChapter, setIsAddingChapter] = useState(false);
+  const [editingChapterId, setEditingChapterId] = useState<string | null>(null);
+  const [editChapterTitle, setEditChapterTitle] = useState('');
+  const [editChapterDesc, setEditChapterDesc] = useState('');
   const [newItemTitle, setNewItemTitle] = useState('');
   const [creatingInLessonId, setCreatingInLessonId] = useState<string | null>(null);
   const [creatingInChapterId, setCreatingInChapterId] = useState<string | null>(null);
   const [pageType, setPageType] = useState('theory');
+
+  const startEditChapter = (chapter: Chapter) => {
+    setEditingChapterId(chapter.id);
+    setEditChapterTitle(chapter.title);
+    setEditChapterDesc(chapter.description || '');
+  };
+
+  const saveChapterEdits = () => {
+    if (editingChapterId && onUpdateChapter) {
+      onUpdateChapter(editingChapterId, {
+        title: editChapterTitle.trim(),
+        description: editChapterDesc.trim()
+      });
+      setEditingChapterId(null);
+    }
+  };
 
   const submit = (action: () => void) => {
       if(newItemTitle.trim()) { action(); setNewItemTitle(''); setIsAddingChapter(false); setCreatingInChapterId(null); setCreatingInLessonId(null); }
@@ -69,15 +92,50 @@ export function CourseStructure({
 
         {course.chapters.map((ch, chIdx) => (
           <div key={ch.id} className="mb-2">
-            <div className={`tree-item ${selectedChapterId === ch.id && !selectedLessonId ? 'active' : ''}`} onClick={() => onSelectChapter(ch.id)}>
-               <span className="font-bold text-[10px] text-[var(--text-tertiary)] w-5 mr-1">CH{chIdx + 1}</span>
-               <span className="flex-1 truncate font-semibold">{ch.title}</span>
-               <div className="actions">
-                   <button className="btn-icon w-5 h-5 hover:text-white" onClick={e => { e.stopPropagation(); onMoveChapter(chIdx, -1); }}><Icons.ArrowUp width={10} height={10}/></button>
-                   <button className="btn-icon w-5 h-5 hover:text-white" onClick={e => { e.stopPropagation(); onMoveChapter(chIdx, 1); }}><Icons.ArrowDown width={10} height={10}/></button>
-                   <button className="btn-icon w-5 h-5 hover:text-[var(--primary)]" onClick={e => { e.stopPropagation(); onSelectChapter(ch.id); setCreatingInChapterId(ch.id); }}><Icons.Plus width={14} height={14} /></button>
-               </div>
-            </div>
+            {editingChapterId === ch.id ? (
+              <div className="p-3 bg-[var(--bg-input)] border border-[var(--border-focus)] rounded-lg space-y-2">
+                <input
+                  autoFocus
+                  className="form-input py-1 text-sm font-semibold"
+                  placeholder="Название главы"
+                  value={editChapterTitle}
+                  onChange={e => setEditChapterTitle(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && !e.shiftKey && saveChapterEdits()}
+                />
+                <textarea
+                  className="form-input py-1 text-sm"
+                  placeholder="Описание главы (опционально)"
+                  value={editChapterDesc}
+                  onChange={e => setEditChapterDesc(e.target.value)}
+                  rows={2}
+                />
+                <div className="flex gap-2">
+                  <button className="btn btn-primary btn-sm flex-1" onClick={saveChapterEdits}>Сохранить</button>
+                  <button className="btn btn-outline btn-sm" onClick={() => setEditingChapterId(null)}>Отмена</button>
+                </div>
+              </div>
+            ) : (
+              <div>
+                <div className={`tree-item ${selectedChapterId === ch.id && !selectedLessonId ? 'active' : ''}`} onClick={() => onSelectChapter(ch.id)}>
+                   <span className="font-bold text-[10px] text-[var(--text-tertiary)] w-5 mr-1">CH{chIdx + 1}</span>
+                   <div className="flex-1 truncate">
+                      <div className="font-semibold">{ch.title}</div>
+                      {ch.description && (
+                        <div className="text-[10px] text-[var(--text-tertiary)] mt-0.5 opacity-70 truncate">{ch.description}</div>
+                      )}
+                   </div>
+                   <div className="actions">
+                       <button className="btn-icon w-5 h-5 hover:text-white" onClick={e => { e.stopPropagation(); onMoveChapter(chIdx, -1); }}><Icons.ArrowUp width={10} height={10}/></button>
+                       <button className="btn-icon w-5 h-5 hover:text-white" onClick={e => { e.stopPropagation(); onMoveChapter(chIdx, 1); }}><Icons.ArrowDown width={10} height={10}/></button>
+                       <button className="btn-icon w-5 h-5 hover:text-[var(--primary)]" onClick={e => { e.stopPropagation(); startEditChapter(ch); }}><Icons.File width={12} height={12} /></button>
+                       <button className="btn-icon w-5 h-5 hover:text-[var(--primary)]" onClick={e => { e.stopPropagation(); onSelectChapter(ch.id); setCreatingInChapterId(ch.id); }}><Icons.Plus width={14} height={14} /></button>
+                       {onDeleteChapter && (
+                         <button className="btn-icon w-5 h-5 hover:text-[var(--danger)]" onClick={e => { e.stopPropagation(); onDeleteChapter(ch.id); }}><Icons.Trash width={12} height={12} /></button>
+                       )}
+                   </div>
+                </div>
+              </div>
+            )}
 
             {creatingInChapterId === ch.id && (
                 <div className="pl-6 pr-2 py-2 bg-[var(--bg-input)] border-y border-[var(--border-subtle)]">
