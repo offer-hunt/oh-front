@@ -19,6 +19,7 @@ import CourseCreatePage from '@/pages/CourseCreatePage';
 import CourseEditorPage from '@/pages/CourseEditorPage';
 import CourseDetailPage from '@/pages/CourseDetailPage';
 import AuthorProfilePage from '@/pages/AuthorProfilePage';
+import ProfilePage from '@/pages/ProfilePage';
 
 import App from './App';
 
@@ -48,6 +49,14 @@ export const router = createBrowserRouter([
       // Public Catalog Routes
       { path: 'catalog/:courseId', element: <CourseDetailPage /> },
       { path: 'authors/:authorId', element: <AuthorProfilePage /> },
+      {
+        path: 'profile',
+        element: (
+          <ProtectedRoute>
+            <ProfilePage />
+          </ProtectedRoute>
+        ),
+      },
 
       // Protected Courses (для авторов)
       {
