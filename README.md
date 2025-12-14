@@ -20,6 +20,7 @@
 - `VITE_OIDC_REDIRECT_URI` — `https://host/auth/callback`
 - `VITE_OIDC_SCOPE` — например, `openid profile email offline_access`
 - `VITE_BACKEND_API` — базовый URL API, который будет использовать фронтенд (например, `/api`).
+- `VITE_PROFILE_USE_MOCKS` — `true/false`, включает фронтовые моки личного кабинета (по умолчанию `true`).
 
 ## OAuth2/OIDC (Authorization Code + PKCE)
 

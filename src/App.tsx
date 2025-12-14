@@ -27,10 +27,10 @@ export default function App() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             {isAuthenticated ? (
-              <span className="app-nav__user">
-                <span style={{opacity: 0.6, marginRight: 4}}>👤</span>
+              <Link to="/profile" className="app-nav__user" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                <span style={{ opacity: 0.6 }}>👤</span>
                 {user?.name || user?.email}
-              </span>
+              </Link>
             ) : (
               <Link to="/login" className="btn btn-primary btn-sm">Войти</Link>
             )}
