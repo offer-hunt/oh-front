@@ -86,11 +86,7 @@ export interface ProfileApi {
   unenrollFromCourse(courseId: string): Promise<void>;
 }
 
-const GLOBAL_USE_MOCKS = import.meta.env.VITE_USE_MOCKS as string | undefined;
-const USE_MOCKS =
-  GLOBAL_USE_MOCKS !== undefined
-    ? GLOBAL_USE_MOCKS === 'true'
-    : (import.meta.env.VITE_PROFILE_USE_MOCKS as string | undefined) !== 'false';
+const USE_MOCKS = (import.meta.env.VITE_PROFILE_USE_MOCKS as string | undefined) !== 'false';
 const API_BASE = (import.meta.env.VITE_BACKEND_API as string) ?? '/api';
 const LEARNING_API_BASE = (import.meta.env.VITE_LEARNING_API as string | undefined) ?? API_BASE;
 const STORAGE_KEY = 'oh-front-auth-session';

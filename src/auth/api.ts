@@ -1,11 +1,7 @@
 import type { AuthApi, AuthSession, AuthUser, TokenResponse } from './types';
 import { mockAuthApi } from '@/mocks/auth/mockAuthApi';
 
-const GLOBAL_USE_MOCKS = import.meta.env.VITE_USE_MOCKS as string | undefined;
-const USE_MOCKS =
-  GLOBAL_USE_MOCKS !== undefined
-    ? GLOBAL_USE_MOCKS === 'true'
-    : (import.meta.env.VITE_AUTH_USE_MOCKS as string | undefined) === 'true';
+const USE_MOCKS = (import.meta.env.VITE_AUTH_USE_MOCKS as string | undefined) === 'true';
 const API_BASE = (import.meta.env.VITE_BACKEND_API as string) ?? '/api';
 
 // Вспомогательная функция для обработки ошибок от бэкенда
