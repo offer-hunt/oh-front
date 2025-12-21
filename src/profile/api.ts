@@ -20,6 +20,8 @@ export interface LearningCourse {
   lastLesson?: string;
   tasksCompleted?: number;
   tasksTotal?: number;
+  lessonsCompleted?: number;
+  lessonsTotal?: number;
   chapters?: Array<{ title: string; progress: number }>;
   averageScore?: number;
   codingTasksSolved?: number;
@@ -65,6 +67,9 @@ export interface ProfileApi {
   getLearningDetails(courseId: string): Promise<LearningCourse | null>;
   getAuthoredCourses(): Promise<AuthoredCourse[]>;
   getAuthoredCourseDetails(courseId: string): Promise<AuthoredCourse | null>;
+  exportUserData(): Promise<{ filename: string; content: string; mimeType: string }>;
+  deleteAccount(payload: { password: string }): Promise<void>;
+  unenrollFromCourse(courseId: string): Promise<void>;
 }
 
 const USE_MOCKS = (import.meta.env.VITE_PROFILE_USE_MOCKS as string | undefined) !== 'false';
@@ -95,6 +100,15 @@ const realProfileApi: ProfileApi = {
     throw new Error('Profile API is not implemented yet');
   },
   async getAuthoredCourseDetails() {
+    throw new Error('Profile API is not implemented yet');
+  },
+  async exportUserData() {
+    throw new Error('Profile API is not implemented yet');
+  },
+  async deleteAccount() {
+    throw new Error('Profile API is not implemented yet');
+  },
+  async unenrollFromCourse() {
     throw new Error('Profile API is not implemented yet');
   },
 };

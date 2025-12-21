@@ -27,6 +27,8 @@ let learningCourses: LearningCourse[] = [
     lastLesson: 'Градиентный бустинг',
     tasksCompleted: 14,
     tasksTotal: 18,
+    lessonsCompleted: 32,
+    lessonsTotal: 42,
     chapters: [
       { title: 'Введение', progress: 100 },
       { title: 'Предобработка данных', progress: 85 },
@@ -45,6 +47,8 @@ let learningCourses: LearningCourse[] = [
     lastLesson: 'Финальный проект',
     tasksCompleted: 22,
     tasksTotal: 22,
+    lessonsCompleted: 48,
+    lessonsTotal: 48,
     chapters: [
       { title: 'Нейронные сети', progress: 100 },
       { title: 'Генеративные модели', progress: 100 },
@@ -61,6 +65,8 @@ let learningCourses: LearningCourse[] = [
     lastActivity: '2024-08-12',
     tasksCompleted: 0,
     tasksTotal: 8,
+    lessonsCompleted: 0,
+    lessonsTotal: 12,
     chapters: [
       { title: 'Основы', progress: 0 },
       { title: 'Практика', progress: 0 },
@@ -109,6 +115,14 @@ let authoredCourses: AuthoredCourse[] = [
   },
 ];
 
+const incorrectPasswordError = new Error('Неверный пароль');
+const sampleActivityStats = {
+  sessions: 128,
+  hours: 74,
+  achievements: 12,
+  tasksCompleted: learningCourses.reduce((sum, course) => sum + (course.tasksCompleted || 0), 0),
+};
+
 const mockProfileApi: ProfileApi = {
   async getProfile() {
     return delay(profile);
@@ -144,6 +158,33 @@ const mockProfileApi: ProfileApi = {
   },
   async getAuthoredCourseDetails(courseId: string) {
     return delay(authoredCourses.find(course => course.id === courseId) ?? null);
+  },
+  async exportUserData() {
+    const payload = {
+      profile,
+      learningCourses,
+      authoredCourses,
+      activity: sampleActivityStats,
+      generatedAt: new Date().toISOString(),
+    };
+    return delay({
+      filename: 'profile-export.json',
+      content: JSON.stringify(payload, null, 2),
+      mimeType: 'application/json',
+    });
+  },
+  async deleteAccount(payload: { password: string }) {
+    if (payload.password !== 'correct-password') {
+      throw incorrectPasswordError;
+    }
+    profile = { name: '', email: '', bio: '', avatarUrl: undefined };
+    learningCourses = [];
+    authoredCourses = [];
+    return delay(undefined);
+  },
+  async unenrollFromCourse(courseId: string) {
+    learningCourses = learningCourses.filter(course => course.id !== courseId);
+    return delay(undefined);
   },
 };
 
