@@ -79,7 +79,7 @@ export default function ProfilePage() {
   const [authoredLoading, setAuthoredLoading] = useState(true);
   const [authoredError, setAuthoredError] = useState<string | null>(null);
 
-  const hasAuthoredCourses = authoredCourses.length > 0;
+  const hasAuthoredCourses = Array.isArray(authoredCourses) && authoredCourses.length > 0;
 
   useEffect(() => {
     let cancelled = false;
@@ -159,9 +159,12 @@ export default function ProfilePage() {
     };
   }, []);
 
+  const safeLearningCourses = Array.isArray(learningCourses) ? learningCourses : [];
+  const safeAuthoredCourses = Array.isArray(authoredCourses) ? authoredCourses : [];
+
   const filteredLearning = useMemo(() => {
     const search = learningSearch.trim().toLowerCase();
-    const filtered = learningCourses.filter((course) => {
+    const filtered = safeLearningCourses.filter((course) => {
       const matchSearch = !search || course.title.toLowerCase().includes(search);
       const matchStatus = learningFilter === 'all' ? true : course.status === learningFilter;
       return matchSearch && matchStatus;
@@ -179,11 +182,11 @@ export default function ProfilePage() {
       }
       return a.progress - b.progress;
     });
-  }, [learningCourses, learningFilter, learningSearch, learningSort]);
+  }, [safeLearningCourses, learningFilter, learningSearch, learningSort]);
 
   const filteredAuthored = useMemo(() => {
     const search = authoredSearch.trim().toLowerCase();
-    const filtered = authoredCourses.filter((course) => {
+    const filtered = safeAuthoredCourses.filter((course) => {
       const matchSearch = !search || course.title.toLowerCase().includes(search);
       const matchStatus = authoredFilter === 'all' ? true : course.status === authoredFilter;
       return matchSearch && matchStatus;
@@ -196,52 +199,52 @@ export default function ProfilePage() {
         return new Date(a.updatedAt).getTime() - new Date(b.updatedAt).getTime();
       return new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime();
     });
-  }, [authoredCourses, authoredFilter, authoredSearch, authoredSort]);
+  }, [safeAuthoredCourses, authoredFilter, authoredSearch, authoredSort]);
 
   const learningStats = useMemo(() => {
-    const total = learningCourses.length;
-    const completed = learningCourses.filter((c) => c.status === 'completed').length;
-    const inProgress = learningCourses.filter((c) => c.status === 'in_progress').length;
-    const tasksDone = learningCourses.reduce((sum, c) => sum + (c.tasksCompleted || 0), 0);
+    const total = safeLearningCourses.length;
+    const completed = safeLearningCourses.filter((c) => c.status === 'completed').length;
+    const inProgress = safeLearningCourses.filter((c) => c.status === 'in_progress').length;
+    const tasksDone = safeLearningCourses.reduce((sum, c) => sum + (c.tasksCompleted || 0), 0);
     return { total, completed, inProgress, tasksDone };
-  }, [learningCourses]);
+  }, [safeLearningCourses]);
 
   const authoredStats = useMemo(() => {
-    const total = authoredCourses.length;
-    const published = authoredCourses.filter((c) => c.status === 'published').length;
-    const students = authoredCourses.reduce((sum, c) => sum + c.students, 0);
+    const total = safeAuthoredCourses.length;
+    const published = safeAuthoredCourses.filter((c) => c.status === 'published').length;
+    const students = safeAuthoredCourses.reduce((sum, c) => sum + c.students, 0);
     const avgRating =
-      authoredCourses.reduce((sum, c) => sum + (c.rating || 0), 0) /
-      (authoredCourses.filter((c) => c.rating).length || 1);
+      safeAuthoredCourses.reduce((sum, c) => sum + (c.rating || 0), 0) /
+      (safeAuthoredCourses.filter((c) => c.rating).length || 1);
 
     return { total, published, students, avgRating: Number.isFinite(avgRating) ? avgRating : 0 };
-  }, [authoredCourses]);
+  }, [safeAuthoredCourses]);
 
   const activityStats = useMemo(() => {
-    const lastActivity = learningCourses.reduce((latest, course) => {
+    const lastActivity = safeLearningCourses.reduce((latest, course) => {
       const date = new Date(course.lastActivity).getTime();
       return date > latest ? date : latest;
     }, 0);
 
     return {
-      enrolledCourses: learningCourses.length,
-      authoredCourses: authoredCourses.length,
+      enrolledCourses: safeLearningCourses.length,
+      authoredCourses: safeAuthoredCourses.length,
       tasksCompleted: learningStats.tasksDone,
       lastActivity: lastActivity ? new Date(lastActivity).toLocaleDateString('ru-RU') : '—',
     };
-  }, [authoredCourses.length, learningCourses, learningStats.tasksDone]);
+  }, [safeAuthoredCourses.length, safeLearningCourses, learningStats.tasksDone]);
 
   useEffect(() => {
-    if (activeTab === 'learning' && !learningLoading && learningCourses.length === 0) {
+    if (activeTab === 'learning' && !learningLoading && safeLearningCourses.length === 0) {
       console.log('Learning progress page opened - no courses');
     }
-  }, [activeTab, learningLoading, learningCourses.length]);
+  }, [activeTab, learningLoading, safeLearningCourses.length]);
 
   useEffect(() => {
-    if (activeTab === 'authored' && !authoredLoading && authoredCourses.length === 0) {
+    if (activeTab === 'authored' && !authoredLoading && safeAuthoredCourses.length === 0) {
       console.log('My courses page opened - no courses');
     }
-  }, [activeTab, authoredLoading, authoredCourses.length]);
+  }, [activeTab, authoredLoading, safeAuthoredCourses.length]);
 
   const nameTooLong = formState.name.length > 50;
   const bioTooLong = formState.bio.length > 500;
@@ -947,7 +950,9 @@ export default function ProfilePage() {
                 </div>
                 <div className="chip-row">
                   <span className="ai-badge">Средний рейтинг: {authoredStats.avgRating.toFixed(1) || '—'}</span>
-                  <span className="ai-badge">Активные за неделю: {authoredCourses.reduce((sum, c) => sum + (c.activeStudents || 0), 0)}</span>
+                  <span className="ai-badge">
+                    Активные за неделю: {safeAuthoredCourses.reduce((sum, c) => sum + (c.activeStudents || 0), 0)}
+                  </span>
                 </div>
               </div>
 
