@@ -116,7 +116,7 @@ export default function ProfilePage() {
       .getLearningCourses()
       .then((data) => {
         if (cancelled) return;
-        setLearningCourses(data);
+        setLearningCourses(Array.isArray(data) ? data : []);
         setLearningError(null);
       })
       .catch((err: Error) => {
@@ -141,7 +141,7 @@ export default function ProfilePage() {
       .getAuthoredCourses()
       .then((data) => {
         if (cancelled) return;
-        setAuthoredCourses(data);
+        setAuthoredCourses(Array.isArray(data) ? data : []);
         setAuthoredError(null);
       })
       .catch((err: Error) => {
