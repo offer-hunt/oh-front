@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useNavigate } from 'react-router-dom';
 
 import type { AuthoredCourse, LearningCourse, UserProfile } from '@/profile/api';
 import { profileApi } from '@/profile/api';
@@ -17,6 +17,7 @@ const passwordStrength = (value: string) => {
 };
 
 export default function ProfilePage() {
+  const navigate = useNavigate();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -31,6 +32,13 @@ export default function ProfilePage() {
   const [avatarError, setAvatarError] = useState<string | null>(null);
   const [profileSaving, setProfileSaving] = useState(false);
   const [avatarLoading, setAvatarLoading] = useState(false);
+  const [exportMessage, setExportMessage] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exporting, setExporting] = useState(false);
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false);
+  const [deletePassword, setDeletePassword] = useState('');
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteSaving, setDeleteSaving] = useState(false);
 
   const [passwordModalOpen, setPasswordModalOpen] = useState(false);
   const [passwordForm, setPasswordForm] = useState({
@@ -38,13 +46,22 @@ export default function ProfilePage() {
     next: '',
     confirm: '',
   });
+  const [passwordTouched, setPasswordTouched] = useState({
+    current: false,
+    next: false,
+    confirm: false,
+  });
   const [passwordError, setPasswordError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [passwordSaving, setPasswordSaving] = useState(false);
 
   const [activeTab, setActiveTab] = useState<'profile' | 'learning' | 'authored'>('profile');
-  const [selectedCourseId, setSelectedCourseId] = useState<string | null>(null);
-  const [selectedAuthoredId, setSelectedAuthoredId] = useState<string | null>(null);
+  const [selectedCourse, setSelectedCourse] = useState<LearningCourse | null>(null);
+  const [selectedCourseLoading, setSelectedCourseLoading] = useState(false);
+  const [selectedCourseError, setSelectedCourseError] = useState<string | null>(null);
+  const [selectedAuthored, setSelectedAuthored] = useState<AuthoredCourse | null>(null);
+  const [selectedAuthoredLoading, setSelectedAuthoredLoading] = useState(false);
+  const [selectedAuthoredError, setSelectedAuthoredError] = useState<string | null>(null);
 
   const [learningSearch, setLearningSearch] = useState('');
   const [learningFilter, setLearningFilter] = useState<'all' | 'in_progress' | 'completed' | 'not_started'>('all');
@@ -56,6 +73,7 @@ export default function ProfilePage() {
   const [learningCourses, setLearningCourses] = useState<LearningCourse[]>([]);
   const [learningLoading, setLearningLoading] = useState(true);
   const [learningError, setLearningError] = useState<string | null>(null);
+  const [learningMessage, setLearningMessage] = useState<string | null>(null);
 
   const [authoredCourses, setAuthoredCourses] = useState<AuthoredCourse[]>([]);
   const [authoredLoading, setAuthoredLoading] = useState(true);
@@ -74,10 +92,12 @@ export default function ProfilePage() {
         setFormState({ name: data.name, bio: data.bio || '' });
         setAvatarPreview(data.avatarUrl);
         setProfileError(null);
+        console.log('Profile page opened');
       })
       .catch((err: Error) => {
         if (cancelled) return;
         setProfileError(err.message || 'Не удалось загрузить профиль. Попробуйте позже');
+        console.log('Profile page load failed - server error');
       })
       .finally(() => {
         if (cancelled) return;
@@ -102,6 +122,7 @@ export default function ProfilePage() {
       .catch((err: Error) => {
         if (cancelled) return;
         setLearningError(err.message || 'Не удалось загрузить данные о прогрессе. Попробуйте позже');
+        console.log('Learning progress load failed - server error');
       })
       .finally(() => {
         if (cancelled) return;
@@ -126,6 +147,7 @@ export default function ProfilePage() {
       .catch((err: Error) => {
         if (cancelled) return;
         setAuthoredError(err.message || 'Не удалось загрузить данные о курсах. Попробуйте позже');
+        console.log('My courses load failed - server error');
       })
       .finally(() => {
         if (cancelled) return;
@@ -195,8 +217,31 @@ export default function ProfilePage() {
     return { total, published, students, avgRating: Number.isFinite(avgRating) ? avgRating : 0 };
   }, [authoredCourses]);
 
-  const selectedCourse = filteredLearning.find((c) => c.id === selectedCourseId);
-  const selectedAuthored = filteredAuthored.find((c) => c.id === selectedAuthoredId);
+  const activityStats = useMemo(() => {
+    const lastActivity = learningCourses.reduce((latest, course) => {
+      const date = new Date(course.lastActivity).getTime();
+      return date > latest ? date : latest;
+    }, 0);
+
+    return {
+      enrolledCourses: learningCourses.length,
+      authoredCourses: authoredCourses.length,
+      tasksCompleted: learningStats.tasksDone,
+      lastActivity: lastActivity ? new Date(lastActivity).toLocaleDateString('ru-RU') : '—',
+    };
+  }, [authoredCourses.length, learningCourses, learningStats.tasksDone]);
+
+  useEffect(() => {
+    if (activeTab === 'learning' && !learningLoading && learningCourses.length === 0) {
+      console.log('Learning progress page opened - no courses');
+    }
+  }, [activeTab, learningLoading, learningCourses.length]);
+
+  useEffect(() => {
+    if (activeTab === 'authored' && !authoredLoading && authoredCourses.length === 0) {
+      console.log('My courses page opened - no courses');
+    }
+  }, [activeTab, authoredLoading, authoredCourses.length]);
 
   const nameTooLong = formState.name.length > 50;
   const bioTooLong = formState.bio.length > 500;
@@ -297,10 +342,66 @@ export default function ProfilePage() {
     }
   };
 
+  const handleExportData = async () => {
+    setExportError(null);
+    setExportMessage(null);
+    setExporting(true);
+    try {
+      const { filename, content, mimeType } = await profileApi.exportUserData();
+      const blob = new Blob([content], { type: mimeType });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = filename;
+      link.click();
+      URL.revokeObjectURL(url);
+      setExportMessage('Данные успешно экспортированы');
+      console.log('User data exported');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Не удалось экспортировать данные. Попробуйте позже';
+      setExportError(message);
+      console.log('Data export failed - server error');
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    setDeleteError(null);
+    if (!deletePassword.trim()) {
+      setDeleteError('Введите пароль для подтверждения');
+      return;
+    }
+    setDeleteSaving(true);
+    try {
+      await profileApi.deleteAccount({ password: deletePassword.trim() });
+      console.log('Account deleted');
+      window.alert('Ваш аккаунт успешно удален');
+      navigate('/');
+    } catch (err) {
+      const message = err instanceof Error ? err.message : 'Не удалось удалить аккаунт. Попробуйте позже';
+      if (message.toLowerCase().includes('парол')) {
+        setDeleteError('Неверный пароль');
+        console.log('Account deletion failed - incorrect password');
+      } else {
+        setDeleteError('Не удалось удалить аккаунт. Попробуйте позже');
+        console.log('Account deletion failed - server error');
+      }
+    } finally {
+      setDeleteSaving(false);
+    }
+  };
+
   const resetPasswordForm = () => {
     setPasswordForm({ current: '', next: '', confirm: '' });
+    setPasswordTouched({ current: false, next: false, confirm: false });
     setPasswordError(null);
     setPasswordSuccess(null);
+  };
+
+  const resetDeleteForm = () => {
+    setDeletePassword('');
+    setDeleteError(null);
   };
 
   const handlePasswordSave = async () => {
@@ -308,18 +409,17 @@ export default function ProfilePage() {
     setPasswordSuccess(null);
 
     if (!passwordForm.current.trim()) {
-      setPasswordError('Текущий пароль неверный');
-      console.log('Password change failed - incorrect current password');
+      setPasswordTouched((prev) => ({ ...prev, current: true }));
       return;
     }
 
     if (!passwordStrength(passwordForm.next)) {
-      setPasswordError('Пароль слишком простой. Добавьте цифры, символы или заглавные буквы');
+      setPasswordTouched((prev) => ({ ...prev, next: true }));
       return;
     }
 
     if (passwordForm.next !== passwordForm.confirm) {
-      setPasswordError('Пароли не совпадают');
+      setPasswordTouched((prev) => ({ ...prev, confirm: true }));
       return;
     }
 
@@ -337,8 +437,13 @@ export default function ProfilePage() {
       }, 800);
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Не удалось изменить пароль. Попробуйте позже';
-      setPasswordError(message);
-      console.log('Password change failed - server error');
+      if (message.toLowerCase().includes('неверн')) {
+        setPasswordError('Текущий пароль неверный');
+        console.log('Password change failed - incorrect current password');
+      } else {
+        setPasswordError('Не удалось изменить пароль. Попробуйте позже');
+        console.log('Password change failed - server error');
+      }
     } finally {
       setPasswordSaving(false);
     }
@@ -348,6 +453,81 @@ export default function ProfilePage() {
     passwordForm.current.trim().length > 0 &&
     passwordStrength(passwordForm.next) &&
     passwordForm.confirm === passwordForm.next;
+  const currentPasswordError =
+    passwordTouched.current && !passwordForm.current.trim() ? 'Введите текущий пароль' : null;
+  const nextPasswordError =
+    passwordTouched.next && passwordForm.next && !passwordStrength(passwordForm.next)
+      ? 'Пароль слишком простой. Добавьте цифры, символы или заглавные буквы'
+      : null;
+  const confirmPasswordError =
+    passwordTouched.confirm && passwordForm.confirm && passwordForm.confirm !== passwordForm.next
+      ? 'Пароли не совпадают'
+      : null;
+
+  const handleSelectCourse = async (courseId: string) => {
+    setSelectedCourseError(null);
+    setSelectedCourseLoading(true);
+    setSelectedCourse(null);
+    try {
+      const details = await profileApi.getLearningDetails(courseId);
+      if (!details) {
+        setSelectedCourseError('Не удалось загрузить детальный прогресс. Попробуйте позже');
+        console.log('Course progress details load failed - server error');
+        return;
+      }
+      setSelectedCourse(details);
+      console.log('Course progress details opened');
+    } catch (err) {
+      setSelectedCourseError('Не удалось загрузить детальный прогресс. Попробуйте позже');
+      console.log('Course progress details load failed - server error');
+    } finally {
+      setSelectedCourseLoading(false);
+    }
+  };
+
+  const handleSelectAuthored = async (courseId: string) => {
+    setSelectedAuthoredError(null);
+    setSelectedAuthoredLoading(true);
+    setSelectedAuthored(null);
+    try {
+      const details = await profileApi.getAuthoredCourseDetails(courseId);
+      if (!details) {
+        setSelectedAuthoredError('Не удалось загрузить статистику курса. Попробуйте позже');
+        console.log('Course analytics load failed - server error');
+        return;
+      }
+      setSelectedAuthored(details);
+      console.log('Course analytics opened');
+      if (details.students === 0) {
+        console.log('Course analytics opened - no students');
+      }
+    } catch (err) {
+      setSelectedAuthoredError('Не удалось загрузить статистику курса. Попробуйте позже');
+      console.log('Course analytics load failed - server error');
+    } finally {
+      setSelectedAuthoredLoading(false);
+    }
+  };
+
+  const handleUnenroll = async () => {
+    if (!selectedCourse) return;
+    const confirmed = window.confirm(
+      'Вы уверены, что хотите отписаться от курса? Ваш прогресс будет сохранен, но доступ к курсу будет закрыт',
+    );
+    if (!confirmed) return;
+    setLearningError(null);
+    setLearningMessage(null);
+    try {
+      await profileApi.unenrollFromCourse(selectedCourse.id);
+      setLearningCourses((prev) => prev.filter((course) => course.id !== selectedCourse.id));
+      setSelectedCourse(null);
+      setLearningMessage('Вы отписались от курса');
+      console.log('Course unenrollment successful');
+    } catch (err) {
+      setLearningError('Не удалось отписаться от курса. Попробуйте позже');
+      console.log('Course unenrollment failed - server error');
+    }
+  };
 
   const learningStatusLabel: Record<LearningCourse['status'], string> = {
     in_progress: 'В процессе',
@@ -399,7 +579,13 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="profile-header__actions">
-              <button className="btn btn-ghost" onClick={() => setPasswordModalOpen(true)}>
+              <button
+                className="btn btn-ghost"
+                onClick={() => {
+                  resetPasswordForm();
+                  setPasswordModalOpen(true);
+                }}
+              >
                 Изменить пароль
               </button>
               <Link to="/courses/new" className="btn btn-primary">
@@ -524,7 +710,13 @@ export default function ProfilePage() {
                     <p className="eyebrow">Безопасность</p>
                     <h2>Смена пароля</h2>
                   </div>
-                  <button className="btn btn-outline" onClick={() => setPasswordModalOpen(true)}>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => {
+                      resetPasswordForm();
+                      setPasswordModalOpen(true);
+                    }}
+                  >
                     Изменить пароль
                   </button>
                 </div>
@@ -536,6 +728,52 @@ export default function ProfilePage() {
                   <span>Минимум 8 символов</span>
                   <span>Заглавные и строчные буквы</span>
                   <span>Цифры и спецсимволы</span>
+                </div>
+              </div>
+
+              <div className="page-content">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Активность</p>
+                    <h2>Сводка</h2>
+                  </div>
+                  <button className="btn btn-ghost" onClick={handleExportData} disabled={exporting}>
+                    {exporting ? 'Экспорт...' : 'Экспортировать мои данные'}
+                  </button>
+                </div>
+
+                {exportError && <div className="alert alert-danger">{exportError}</div>}
+                {exportMessage && <div className="alert alert-success">{exportMessage}</div>}
+
+                <div className="stat-grid">
+                  <div className="stat-card">
+                    <p className="eyebrow">Курсы</p>
+                    <p>{activityStats.enrolledCourses} записан</p>
+                  </div>
+                  <div className="stat-card">
+                    <p className="eyebrow">Мои курсы</p>
+                    <p>{activityStats.authoredCourses} создано</p>
+                  </div>
+                  <div className="stat-card">
+                    <p className="eyebrow">Задания</p>
+                    <p>{activityStats.tasksCompleted} выполнено</p>
+                  </div>
+                  <div className="stat-card">
+                    <p className="eyebrow">Последняя активность</p>
+                    <p>{activityStats.lastActivity}</p>
+                  </div>
+                </div>
+
+                <div className="profile-footer">
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => {
+                      resetDeleteForm();
+                      setDeleteModalOpen(true);
+                    }}
+                  >
+                    Удалить аккаунт
+                  </button>
                 </div>
               </div>
             </div>
@@ -558,6 +796,7 @@ export default function ProfilePage() {
               </div>
 
               {learningError && <div className="alert alert-danger">{learningError}</div>}
+              {learningMessage && <div className="alert alert-success">{learningMessage}</div>}
 
               {learningLoading ? (
                 <p>Загрузка данных о прогрессе...</p>
@@ -587,14 +826,11 @@ export default function ProfilePage() {
                     <div className="empty-state">
                       <p>У вас пока нет активных курсов</p>
                       <Link to="/" className="btn btn-primary">Перейти к каталогу курсов</Link>
-                      {learningCourses.length === 0 && (
-                        <p className="text-secondary">Learning progress page opened - no courses</p>
-                      )}
                     </div>
                   ) : (
                     <div className="cards-grid">
                       {filteredLearning.map((course) => (
-                        <article key={course.id} className="course-card" onClick={() => setSelectedCourseId(course.id)}>
+                        <article key={course.id} className="course-card" onClick={() => handleSelectCourse(course.id)}>
                           <div className="course-card__header">
                             <div>
                               <p className="eyebrow">{course.author}</p>
@@ -628,14 +864,16 @@ export default function ProfilePage() {
                 </>
               )}
 
-              {selectedCourse && (
+              {selectedCourseLoading && <p>Загрузка детального прогресса...</p>}
+              {selectedCourseError && <div className="alert alert-danger">{selectedCourseError}</div>}
+              {selectedCourse && !selectedCourseLoading && !selectedCourseError && (
                 <div className="page-content" style={{ marginTop: '1.5rem' }}>
                   <div className="section-header">
                     <div>
                       <p className="eyebrow">Детальный прогресс</p>
                       <h3>{selectedCourse.title}</h3>
                     </div>
-                    <button className="btn btn-ghost" onClick={() => setSelectedCourseId(null)}>
+                    <button className="btn btn-ghost" onClick={() => setSelectedCourse(null)}>
                       Закрыть
                     </button>
                   </div>
@@ -647,16 +885,29 @@ export default function ProfilePage() {
                     <div className="stat-card">
                       <p className="eyebrow">Уроки</p>
                       <p>
-                        {selectedCourse.tasksCompleted}/{selectedCourse.tasksTotal} выполнено
+                        {selectedCourse.lessonsCompleted ?? '—'}/{selectedCourse.lessonsTotal ?? '—'} просмотрено
+                      </p>
+                    </div>
+                    <div className="stat-card">
+                      <p className="eyebrow">Задания</p>
+                      <p>
+                        {selectedCourse.tasksCompleted ?? '—'}/{selectedCourse.tasksTotal ?? '—'} выполнено
                       </p>
                     </div>
                     <div className="stat-card">
                       <p className="eyebrow">Средний балл</p>
-                      <p>{selectedCourse.averageScore}%</p>
+                      <p>{selectedCourse.averageScore ?? '—'}%</p>
                     </div>
                     <div className="stat-card">
                       <p className="eyebrow">Кодовые задачи</p>
-                      <p>{selectedCourse.codingTasksSolved} решено</p>
+                      <p>{selectedCourse.codingTasksSolved ?? '—'} решено</p>
+                    </div>
+                    <div className="stat-card">
+                      <p className="eyebrow">Последняя активность</p>
+                      <p>{selectedCourse.lastActivity}</p>
+                      {selectedCourse.lastLesson && (
+                        <p className="text-secondary">{selectedCourse.lastLesson}</p>
+                      )}
                     </div>
                   </div>
 
@@ -677,7 +928,7 @@ export default function ProfilePage() {
 
                   <div className="course-card__actions" style={{ marginTop: '1rem' }}>
                     <button className="btn btn-primary">Продолжить обучение</button>
-                    <button className="btn btn-ghost">Отписаться от курса</button>
+                    <button className="btn btn-ghost" onClick={handleUnenroll}>Отписаться от курса</button>
                   </div>
                 </div>
               )}
@@ -731,12 +982,11 @@ export default function ProfilePage() {
                 <div className="empty-state">
                   <p>Вы еще не создали ни одного курса</p>
                   <Link to="/courses/new" className="btn btn-primary">Создать первый курс</Link>
-                  <p className="text-secondary">My courses page opened - no courses</p>
                 </div>
               ) : (
                 <div className="cards-grid">
                   {filteredAuthored.map((course) => (
-                    <article key={course.id} className="course-card" onClick={() => setSelectedAuthoredId(course.id)}>
+                    <article key={course.id} className="course-card" onClick={() => handleSelectAuthored(course.id)}>
                       <div className="course-card__header">
                         <div>
                           <p className="eyebrow">{course.status === 'published' ? 'Опубликован' : 'Черновик / Архив'}</p>
@@ -749,6 +999,7 @@ export default function ProfilePage() {
                       <div className="course-card__meta">
                         <span>Студентов: {course.students}</span>
                         <span>Средний прогресс: {course.averageProgress}%</span>
+                        <span>Создано: {course.createdAt}</span>
                         <span>Обновлено: {course.updatedAt}</span>
                       </div>
                       <div className="course-card__actions">
@@ -760,62 +1011,83 @@ export default function ProfilePage() {
                 </div>
               )}
 
-              {selectedAuthored && (
+              {selectedAuthoredLoading && <p>Загрузка статистики курса...</p>}
+              {selectedAuthoredError && <div className="alert alert-danger">{selectedAuthoredError}</div>}
+              {selectedAuthored && !selectedAuthoredLoading && !selectedAuthoredError && (
                 <div className="page-content" style={{ marginTop: '1.5rem' }}>
                   <div className="section-header">
                     <div>
                       <p className="eyebrow">Детальная статистика</p>
                       <h3>{selectedAuthored.title}</h3>
                     </div>
-                    <button className="btn btn-ghost" onClick={() => setSelectedAuthoredId(null)}>
+                    <button className="btn btn-ghost" onClick={() => setSelectedAuthored(null)}>
                       Закрыть
                     </button>
                   </div>
 
-                  <div className="stat-grid">
-                    <div className="stat-card">
-                      <p className="eyebrow">Студенты</p>
-                      <h3>{selectedAuthored.students}</h3>
-                      <p className="text-secondary">Активные: {selectedAuthored.activeStudents ?? '—'}</p>
-                    </div>
-                    <div className="stat-card">
-                      <p className="eyebrow">Средний прогресс</p>
-                      <h3>{selectedAuthored.averageProgress}%</h3>
-                      <p className="text-secondary">Завершили: {selectedAuthored.completionRate ?? '—'}%</p>
-                    </div>
-                    <div className="stat-card">
-                      <p className="eyebrow">Уроки и главы</p>
-                      <p>
-                        {selectedAuthored.totalChapters || '—'} глав · {selectedAuthored.lessons || '—'} уроков
-                      </p>
-                    </div>
-                    <div className="stat-card">
-                      <p className="eyebrow">Средний тестовый балл</p>
-                      <p>{selectedAuthored.averageTestScore ?? '—'}%</p>
-                      <p className="text-secondary">Кодовые задачи: {selectedAuthored.codingSuccess ?? '—'}%</p>
-                    </div>
+                  <div className="course-card__meta" style={{ marginBottom: '1rem' }}>
+                    <span>Статус: {authoredStatusLabel[selectedAuthored.status]}</span>
+                    <span>Дата публикации: {selectedAuthored.publishedAt || '—'}</span>
+                    <span>Глав: {selectedAuthored.totalChapters || '—'}</span>
+                    <span>Уроков: {selectedAuthored.lessons || '—'}</span>
                   </div>
 
-                  <div className="chapters">
-                    <div>
-                      <p className="eyebrow">Самые популярные уроки</p>
-                      {(selectedAuthored.popularLessons || []).map((lesson) => (
-                        <div key={lesson.title} className="chapter-row">
-                          <p>{lesson.title}</p>
-                          <span className="text-secondary">{lesson.views} просмотров</span>
-                        </div>
-                      ))}
+                  {selectedAuthored.students === 0 ? (
+                    <div className="empty-state">
+                      <p>На курс еще никто не записался</p>
+                      <p className="text-secondary">
+                        Глав: {selectedAuthored.totalChapters || '—'} · Уроков: {selectedAuthored.lessons || '—'}
+                      </p>
+                      <p className="text-secondary">Дата публикации: {selectedAuthored.publishedAt || '—'}</p>
                     </div>
-                    <div>
-                      <p className="eyebrow">Сложные уроки</p>
-                      {(selectedAuthored.hardestLessons || []).map((lesson) => (
-                        <div key={lesson.title} className="chapter-row">
-                          <p>{lesson.title}</p>
-                          <span className="text-secondary">Завершение: {lesson.completion}%</span>
+                  ) : (
+                    <>
+                      <div className="stat-grid">
+                        <div className="stat-card">
+                          <p className="eyebrow">Студенты</p>
+                          <h3>{selectedAuthored.students}</h3>
+                          <p className="text-secondary">Активные: {selectedAuthored.activeStudents ?? '—'}</p>
                         </div>
-                      ))}
-                    </div>
-                  </div>
+                        <div className="stat-card">
+                          <p className="eyebrow">Средний прогресс</p>
+                          <h3>{selectedAuthored.averageProgress}%</h3>
+                          <p className="text-secondary">Завершили: {selectedAuthored.completionRate ?? '—'}%</p>
+                        </div>
+                        <div className="stat-card">
+                          <p className="eyebrow">Уроки и главы</p>
+                          <p>
+                            {selectedAuthored.totalChapters || '—'} глав · {selectedAuthored.lessons || '—'} уроков
+                          </p>
+                        </div>
+                        <div className="stat-card">
+                          <p className="eyebrow">Средний тестовый балл</p>
+                          <p>{selectedAuthored.averageTestScore ?? '—'}%</p>
+                          <p className="text-secondary">Кодовые задачи: {selectedAuthored.codingSuccess ?? '—'}%</p>
+                        </div>
+                      </div>
+
+                      <div className="chapters">
+                        <div>
+                          <p className="eyebrow">Самые популярные уроки</p>
+                          {(selectedAuthored.popularLessons || []).map((lesson) => (
+                            <div key={lesson.title} className="chapter-row">
+                              <p>{lesson.title}</p>
+                              <span className="text-secondary">{lesson.views} просмотров</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div>
+                          <p className="eyebrow">Сложные уроки</p>
+                          {(selectedAuthored.hardestLessons || []).map((lesson) => (
+                            <div key={lesson.title} className="chapter-row">
+                              <p>{lesson.title}</p>
+                              <span className="text-secondary">Завершение: {lesson.completion}%</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
               )}
               </>
@@ -845,8 +1117,11 @@ export default function ProfilePage() {
                 type="password"
                 value={passwordForm.current}
                 onChange={(e) => setPasswordForm((prev) => ({ ...prev, current: e.target.value }))}
+                onBlur={() => setPasswordTouched((prev) => ({ ...prev, current: true }))}
                 placeholder="Введите текущий пароль"
+                className={currentPasswordError ? 'has-error' : ''}
               />
+              {currentPasswordError && <p className="error-text">{currentPasswordError}</p>}
             </div>
 
             <div className="form-control">
@@ -855,12 +1130,11 @@ export default function ProfilePage() {
                 type="password"
                 value={passwordForm.next}
                 onChange={(e) => setPasswordForm((prev) => ({ ...prev, next: e.target.value }))}
+                onBlur={() => setPasswordTouched((prev) => ({ ...prev, next: true }))}
                 placeholder="Новый пароль"
-                className={passwordForm.next ? (passwordStrength(passwordForm.next) ? '' : 'has-error') : ''}
+                className={nextPasswordError ? 'has-error' : ''}
               />
-              {passwordForm.next && !passwordStrength(passwordForm.next) && (
-                <p className="error-text">Пароль слишком простой. Добавьте цифры, символы или заглавные буквы</p>
-              )}
+              {nextPasswordError && <p className="error-text">{nextPasswordError}</p>}
             </div>
 
             <div className="form-control">
@@ -869,12 +1143,11 @@ export default function ProfilePage() {
                 type="password"
                 value={passwordForm.confirm}
                 onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirm: e.target.value }))}
+                onBlur={() => setPasswordTouched((prev) => ({ ...prev, confirm: true }))}
                 placeholder="Повторите пароль"
-                className={passwordForm.confirm ? (passwordForm.confirm === passwordForm.next ? '' : 'has-error') : ''}
+                className={confirmPasswordError ? 'has-error' : ''}
               />
-              {passwordForm.confirm && passwordForm.confirm !== passwordForm.next && (
-                <p className="error-text">Пароли не совпадают</p>
-              )}
+              {confirmPasswordError && <p className="error-text">{confirmPasswordError}</p>}
             </div>
 
             <div className="modal__footer">
@@ -883,6 +1156,58 @@ export default function ProfilePage() {
               </button>
               <button className="btn btn-primary" disabled={!isPasswordValid || passwordSaving} onClick={handlePasswordSave}>
                 {passwordSaving ? 'Сохранение...' : 'Сохранить новый пароль'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {deleteModalOpen && (
+        <div className="modal-backdrop" role="dialog" aria-modal="true">
+          <div className="modal">
+            <div className="modal__header">
+              <div>
+                <p className="eyebrow">Удаление аккаунта</p>
+                <h3>Удалить аккаунт</h3>
+              </div>
+              <button
+                onClick={() => {
+                  setDeleteModalOpen(false);
+                  resetDeleteForm();
+                }}
+              >
+                ×
+              </button>
+            </div>
+
+            <p className="text-secondary" style={{ marginBottom: '1rem' }}>
+              Это действие необратимо. Все ваши данные, включая прогресс обучения и созданные курсы, будут удалены.
+            </p>
+
+            {deleteError && <div className="alert alert-danger">{deleteError}</div>}
+
+            <div className="form-control">
+              <label>Текущий пароль</label>
+              <input
+                type="password"
+                value={deletePassword}
+                onChange={(e) => setDeletePassword(e.target.value)}
+                placeholder="Введите пароль"
+              />
+            </div>
+
+            <div className="modal__footer">
+              <button
+                className="btn btn-ghost"
+                onClick={() => {
+                  setDeleteModalOpen(false);
+                  resetDeleteForm();
+                }}
+              >
+                Отмена
+              </button>
+              <button className="btn btn-outline" disabled={deleteSaving} onClick={handleDeleteAccount}>
+                {deleteSaving ? 'Удаление...' : 'Удалить аккаунт навсегда'}
               </button>
             </div>
           </div>

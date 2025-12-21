@@ -20,6 +20,8 @@ export interface LearningCourse {
   lastLesson?: string;
   tasksCompleted?: number;
   tasksTotal?: number;
+  lessonsCompleted?: number;
+  lessonsTotal?: number;
   chapters?: Array<{ title: string; progress: number }>;
   averageScore?: number;
   codingTasksSolved?: number;
@@ -65,16 +67,69 @@ export interface ProfileApi {
   getLearningDetails(courseId: string): Promise<LearningCourse | null>;
   getAuthoredCourses(): Promise<AuthoredCourse[]>;
   getAuthoredCourseDetails(courseId: string): Promise<AuthoredCourse | null>;
+  exportUserData(): Promise<{ filename: string; content: string; mimeType: string }>;
+  deleteAccount(payload: { password: string }): Promise<void>;
+  unenrollFromCourse(courseId: string): Promise<void>;
 }
 
 const USE_MOCKS = (import.meta.env.VITE_PROFILE_USE_MOCKS as string | undefined) !== 'false';
+const API_BASE = (import.meta.env.VITE_BACKEND_API as string) ?? '/api';
+const LEARNING_API_BASE = (import.meta.env.VITE_LEARNING_API as string | undefined) ?? API_BASE;
+const STORAGE_KEY = 'oh-front-auth-session';
+
+const getAccessToken = (): string | null => {
+  if (typeof window === 'undefined') return null;
+  const raw = window.localStorage.getItem(STORAGE_KEY);
+  if (!raw) return null;
+  try {
+    const parsed = JSON.parse(raw) as { accessToken?: string };
+    return parsed.accessToken ?? null;
+  } catch {
+    return null;
+  }
+};
+
+const buildHeaders = () => {
+  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+  const token = getAccessToken();
+  if (token) {
+    headers.Authorization = `Bearer ${token}`;
+  }
+  return headers;
+};
+
+const handleResponse = async <T>(res: Response): Promise<T> => {
+  if (!res.ok) {
+    let errorData: { message?: string; code?: string } | undefined;
+    try {
+      errorData = await res.json();
+    } catch {
+      // ignore parsing errors
+    }
+    const errorMessage = errorData?.code || errorData?.message || `Error ${res.status}`;
+    throw new Error(errorMessage);
+  }
+
+  const text = await res.text();
+  return (text ? JSON.parse(text) : undefined) as T;
+};
 
 const realProfileApi: ProfileApi = {
   async getProfile() {
-    throw new Error('Profile API is not implemented yet');
+    return handleResponse<UserProfile>(
+      await fetch(`${API_BASE}/profile`, {
+        headers: buildHeaders(),
+      }),
+    );
   },
-  async updateProfile() {
-    throw new Error('Profile API is not implemented yet');
+  async updateProfile(payload) {
+    return handleResponse<UserProfile>(
+      await fetch(`${API_BASE}/profile`, {
+        method: 'PUT',
+        headers: buildHeaders(),
+        body: JSON.stringify(payload),
+      }),
+    );
   },
   async uploadAvatar() {
     throw new Error('Profile API is not implemented yet');
@@ -86,15 +141,32 @@ const realProfileApi: ProfileApi = {
     throw new Error('Profile API is not implemented yet');
   },
   async getLearningCourses() {
-    throw new Error('Profile API is not implemented yet');
+    return handleResponse<LearningCourse[]>(
+      await fetch(`${LEARNING_API_BASE}/learning/courses`, {
+        headers: buildHeaders(),
+      }),
+    );
   },
   async getLearningDetails() {
     throw new Error('Profile API is not implemented yet');
   },
   async getAuthoredCourses() {
-    throw new Error('Profile API is not implemented yet');
+    return handleResponse<AuthoredCourse[]>(
+      await fetch(`${API_BASE}/courses/my`, {
+        headers: buildHeaders(),
+      }),
+    );
   },
   async getAuthoredCourseDetails() {
+    throw new Error('Profile API is not implemented yet');
+  },
+  async exportUserData() {
+    throw new Error('Profile API is not implemented yet');
+  },
+  async deleteAccount() {
+    throw new Error('Profile API is not implemented yet');
+  },
+  async unenrollFromCourse() {
     throw new Error('Profile API is not implemented yet');
   },
 };
