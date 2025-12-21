@@ -7,6 +7,20 @@ export interface UserProfile {
   avatarUrl?: string;
 }
 
+interface UserProfileResponse {
+  userId: string;
+  email: string;
+  fullName: string;
+  bio?: string | null;
+  avatarUrl?: string | null;
+  role?: string | null;
+  createdAt?: string | null;
+  lastLoginAt?: string | null;
+  emailVerifiedAt?: string | null;
+  issuer?: string | null;
+  audience?: string[] | null;
+}
+
 export type LearningStatus = 'in_progress' | 'completed' | 'not_started';
 export type AuthoredStatus = 'published' | 'draft' | 'archived';
 
@@ -93,8 +107,11 @@ const getAccessToken = (): string | null => {
   }
 };
 
-const buildHeaders = () => {
-  const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+const buildHeaders = (options?: { withContentType?: boolean }) => {
+  const headers: Record<string, string> = {};
+  if (options?.withContentType !== false) {
+    headers['Content-Type'] = 'application/json';
+  }
   const token = getAccessToken();
   if (token) {
     headers.Authorization = `Bearer ${token}`;
@@ -118,30 +135,55 @@ const handleResponse = async <T>(res: Response): Promise<T> => {
   return (text ? JSON.parse(text) : undefined) as T;
 };
 
+const mapProfileResponse = (data: UserProfileResponse): UserProfile => ({
+  name: data.fullName ?? '',
+  email: data.email ?? '',
+  bio: data.bio ?? undefined,
+  avatarUrl: data.avatarUrl ?? undefined,
+});
+
 const realProfileApi: ProfileApi = {
   async getProfile() {
-    return handleResponse<UserProfile>(
+    const data = await handleResponse<UserProfileResponse>(
       await fetch(`${API_BASE}/profile`, {
         headers: buildHeaders(),
         credentials: 'include',
       }),
     );
+    return mapProfileResponse(data);
   },
   async updateProfile(payload) {
-    return handleResponse<UserProfile>(
+    const data = await handleResponse<{ message?: string; profile: UserProfileResponse }>(
       await fetch(`${API_BASE}/profile`, {
         method: 'PUT',
         headers: buildHeaders(),
-        body: JSON.stringify(payload),
+        body: JSON.stringify({ fullName: payload.name, bio: payload.bio }),
         credentials: 'include',
       }),
     );
+    return mapProfileResponse(data.profile);
   },
-  async uploadAvatar() {
-    throw new Error('Profile API is not implemented yet');
+  async uploadAvatar(file) {
+    const formData = new FormData();
+    formData.append('file', file);
+    const data = await handleResponse<{ message?: string; avatarUrl: string }>(
+      await fetch(`${API_BASE}/profile/avatar`, {
+        method: 'POST',
+        headers: buildHeaders({ withContentType: false }),
+        body: formData,
+        credentials: 'include',
+      }),
+    );
+    return data.avatarUrl;
   },
   async deleteAvatar() {
-    throw new Error('Profile API is not implemented yet');
+    await handleResponse(
+      await fetch(`${API_BASE}/profile/avatar`, {
+        method: 'DELETE',
+        headers: buildHeaders(),
+        credentials: 'include',
+      }),
+    );
   },
   async changePassword() {
     throw new Error('Profile API is not implemented yet');
