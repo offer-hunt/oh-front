@@ -1,23 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 
+import { useAuth } from '@/auth/AuthContext';
+import { PasswordField } from '@/auth/components/PasswordField';
+import { getPasswordRequirementsState, validatePassword } from '@/auth/validation';
 import type { AuthoredCourse, LearningCourse, UserProfile } from '@/profile/api';
 import { profileApi } from '@/profile/api';
 
-const passwordStrength = (value: string) => {
-  const rules = [
-    /.{8,}/,
-    /[A-Z]/,
-    /[a-z]/,
-    /\d/,
-    /[^A-Za-z0-9]/,
-  ];
-
-  return rules.every((rule) => rule.test(value));
-};
-
 export default function ProfilePage() {
   const navigate = useNavigate();
+  const { logout } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [profileLoading, setProfileLoading] = useState(true);
 
@@ -52,6 +44,8 @@ export default function ProfilePage() {
     confirm: false,
   });
   const [passwordError, setPasswordError] = useState<string | null>(null);
+  const [passwordFieldError, setPasswordFieldError] = useState<string | null>(null);
+  const [confirmFieldError, setConfirmFieldError] = useState<string | null>(null);
   const [passwordSuccess, setPasswordSuccess] = useState<string | null>(null);
   const [passwordSaving, setPasswordSaving] = useState(false);
 
@@ -251,8 +245,8 @@ export default function ProfilePage() {
     }
   }, [activeTab, authoredLoading, safeAuthoredCourses.length]);
 
-  const nameTooLong = formState.name.length > 50;
-  const bioTooLong = formState.bio.length > 500;
+  const nameTooLong = (formState.name ?? '').length > 50;
+  const bioTooLong = (formState.bio ?? '').length > 500;
 
   const handleProfileChange = (field: 'name' | 'bio', value: string) => {
     setProfileMessage(null);
@@ -265,7 +259,10 @@ export default function ProfilePage() {
     setProfileMessage(null);
     setProfileError(null);
 
-    if (!formState.name.trim()) {
+    const nameValue = (formState.name ?? '').trim();
+    const bioValue = (formState.bio ?? '').trim();
+
+    if (!nameValue) {
       setProfileError('Имя не может быть пустым');
       console.log('Profile update failed - empty name');
       return;
@@ -278,8 +275,8 @@ export default function ProfilePage() {
     setProfileSaving(true);
     try {
       const updated = await profileApi.updateProfile({
-        name: formState.name.trim(),
-        bio: formState.bio.trim(),
+        name: nameValue,
+        bio: bioValue,
       });
       setProfile(updated);
       setAvatarPreview(updated.avatarUrl);
@@ -404,6 +401,8 @@ export default function ProfilePage() {
     setPasswordForm({ current: '', next: '', confirm: '' });
     setPasswordTouched({ current: false, next: false, confirm: false });
     setPasswordError(null);
+    setPasswordFieldError(null);
+    setConfirmFieldError(null);
     setPasswordSuccess(null);
   };
 
@@ -414,6 +413,8 @@ export default function ProfilePage() {
 
   const handlePasswordSave = async () => {
     setPasswordError(null);
+    setPasswordFieldError(null);
+    setConfirmFieldError(null);
     setPasswordSuccess(null);
 
     if (!passwordForm.current.trim()) {
@@ -421,12 +422,15 @@ export default function ProfilePage() {
       return;
     }
 
-    if (!passwordStrength(passwordForm.next)) {
+    const passErr = validatePassword(passwordForm.next);
+    if (passErr) {
+      setPasswordFieldError(passErr);
       setPasswordTouched((prev) => ({ ...prev, next: true }));
       return;
     }
 
     if (passwordForm.next !== passwordForm.confirm) {
+      setConfirmFieldError('Пароли не совпадают');
       setPasswordTouched((prev) => ({ ...prev, confirm: true }));
       return;
     }
@@ -459,18 +463,17 @@ export default function ProfilePage() {
 
   const isPasswordValid =
     passwordForm.current.trim().length > 0 &&
-    passwordStrength(passwordForm.next) &&
+    !validatePassword(passwordForm.next) &&
     passwordForm.confirm === passwordForm.next;
   const currentPasswordError =
     passwordTouched.current && !passwordForm.current.trim() ? 'Введите текущий пароль' : null;
-  const nextPasswordError =
-    passwordTouched.next && passwordForm.next && !passwordStrength(passwordForm.next)
-      ? 'Пароль слишком простой. Добавьте цифры, символы или заглавные буквы'
-      : null;
-  const confirmPasswordError =
-    passwordTouched.confirm && passwordForm.confirm && passwordForm.confirm !== passwordForm.next
-      ? 'Пароли не совпадают'
-      : null;
+  const nextPasswordError = passwordTouched.next ? passwordFieldError : null;
+  const confirmPasswordError = passwordTouched.confirm ? confirmFieldError : null;
+  const passwordRequirements = getPasswordRequirementsState(passwordForm.next);
+  const passwordValid =
+    passwordTouched.next && !nextPasswordError && passwordForm.next.length > 0;
+  const confirmValid =
+    passwordTouched.confirm && !confirmPasswordError && passwordForm.confirm.length > 0;
 
   const handleSelectCourse = async (courseId: string) => {
     setSelectedCourseError(null);
@@ -587,15 +590,6 @@ export default function ProfilePage() {
               </div>
             </div>
             <div className="profile-header__actions">
-              <button
-                className="btn btn-ghost"
-                onClick={() => {
-                  resetPasswordForm();
-                  setPasswordModalOpen(true);
-                }}
-              >
-                Изменить пароль
-              </button>
               <Link to="/courses/new" className="btn btn-primary">
                 Создать курс
               </Link>
@@ -661,17 +655,17 @@ export default function ProfilePage() {
                 {profileError && <div className="alert alert-danger">{profileError}</div>}
 
                 <div className="form-grid">
-                  <div className="form-control">
-                    <label>Имя</label>
-                    <input
-                      value={formState.name}
+                <div className="form-control">
+                  <label>Имя</label>
+                  <input
+                      value={formState.name ?? ''}
                       onChange={(e) => handleProfileChange('name', e.target.value)}
                       placeholder="Ваше имя"
                       className={nameTooLong ? 'has-error' : ''}
-                    />
+                  />
                     <div className="field-meta">
                       <span className="text-secondary">Можно менять в любой момент</span>
-                      <span className="text-secondary">{formState.name.length}/50</span>
+                      <span className="text-secondary">{(formState.name ?? '').length}/50</span>
                     </div>
                     {nameTooLong && <p className="error-text">Имя не может быть длиннее 50 символов</p>}
                   </div>
@@ -695,7 +689,7 @@ export default function ProfilePage() {
                     />
                     <div className="field-meta">
                       <span className="text-secondary">Опциональное поле</span>
-                      <span className="text-secondary">{formState.bio.length}/500</span>
+                      <span className="text-secondary">{(formState.bio ?? '').length}/500</span>
                     </div>
                     {bioTooLong && <p className="error-text">Описание не может быть длиннее 500 символов</p>}
                   </div>
@@ -709,33 +703,6 @@ export default function ProfilePage() {
                   >
                     {profileSaving ? 'Сохранение...' : 'Сохранить изменения'}
                   </button>
-                </div>
-              </div>
-
-              <div className="page-content">
-                <div className="section-header">
-                  <div>
-                    <p className="eyebrow">Безопасность</p>
-                    <h2>Смена пароля</h2>
-                  </div>
-                  <button
-                    className="btn btn-outline"
-                    onClick={() => {
-                      resetPasswordForm();
-                      setPasswordModalOpen(true);
-                    }}
-                  >
-                    Изменить пароль
-                  </button>
-                </div>
-
-                <p className="text-secondary" style={{ marginBottom: '1rem' }}>
-                  Добавьте буквы разного регистра, цифры и спецсимволы, чтобы повысить сложность пароля.
-                </p>
-                <div className="password-rules">
-                  <span>Минимум 8 символов</span>
-                  <span>Заглавные и строчные буквы</span>
-                  <span>Цифры и спецсимволы</span>
                 </div>
               </div>
 
@@ -771,8 +738,26 @@ export default function ProfilePage() {
                     <p>{activityStats.lastActivity}</p>
                   </div>
                 </div>
+              </div>
 
-                <div className="profile-footer">
+              <div className="page-content">
+                <div className="section-header">
+                  <div>
+                    <p className="eyebrow">Действия</p>
+                    <h2>Управление аккаунтом</h2>
+                  </div>
+                </div>
+
+                <div className="profile-actions" style={{ justifyContent: 'flex-start' }}>
+                  <button
+                    className="btn btn-outline"
+                    onClick={() => {
+                      resetPasswordForm();
+                      setPasswordModalOpen(true);
+                    }}
+                  >
+                    Изменить пароль
+                  </button>
                   <button
                     className="btn btn-outline"
                     onClick={() => {
@@ -781,6 +766,15 @@ export default function ProfilePage() {
                     }}
                   >
                     Удалить аккаунт
+                  </button>
+                  <button
+                    className="btn btn-ghost"
+                    onClick={() => {
+                      logout();
+                      navigate('/login');
+                    }}
+                  >
+                    Выйти
                   </button>
                 </div>
               </div>
@@ -1136,26 +1130,47 @@ export default function ProfilePage() {
 
             <div className="form-control">
               <label>Новый пароль</label>
-              <input
-                type="password"
+              <PasswordField
+                id="profile-password"
                 value={passwordForm.next}
-                onChange={(e) => setPasswordForm((prev) => ({ ...prev, next: e.target.value }))}
-                onBlur={() => setPasswordTouched((prev) => ({ ...prev, next: true }))}
-                placeholder="Новый пароль"
-                className={nextPasswordError ? 'has-error' : ''}
+                onChange={(value) => {
+                  setPasswordForm((prev) => ({ ...prev, next: value }));
+                  if (passwordTouched.next) {
+                    setPasswordFieldError(validatePassword(value));
+                  }
+                  if (passwordTouched.confirm) {
+                    setConfirmFieldError(value === passwordForm.confirm ? null : 'Пароли не совпадают');
+                  }
+                }}
+                onBlur={() => {
+                  setPasswordTouched((prev) => ({ ...prev, next: true }));
+                  setPasswordFieldError(validatePassword(passwordForm.next));
+                }}
+                error={nextPasswordError}
+                isValid={passwordValid}
+                showRequirements
+                requirements={passwordRequirements}
               />
               {nextPasswordError && <p className="error-text">{nextPasswordError}</p>}
             </div>
 
             <div className="form-control">
               <label>Подтверждение нового пароля</label>
-              <input
-                type="password"
+              <PasswordField
+                id="profile-password-confirm"
                 value={passwordForm.confirm}
-                onChange={(e) => setPasswordForm((prev) => ({ ...prev, confirm: e.target.value }))}
-                onBlur={() => setPasswordTouched((prev) => ({ ...prev, confirm: true }))}
-                placeholder="Повторите пароль"
-                className={confirmPasswordError ? 'has-error' : ''}
+                onChange={(value) => {
+                  setPasswordForm((prev) => ({ ...prev, confirm: value }));
+                  if (passwordTouched.confirm) {
+                    setConfirmFieldError(passwordForm.next === value ? null : 'Пароли не совпадают');
+                  }
+                }}
+                onBlur={() => {
+                  setPasswordTouched((prev) => ({ ...prev, confirm: true }));
+                  setConfirmFieldError(passwordForm.next === passwordForm.confirm ? null : 'Пароли не совпадают');
+                }}
+                error={confirmPasswordError}
+                isValid={confirmValid}
               />
               {confirmPasswordError && <p className="error-text">{confirmPasswordError}</p>}
             </div>

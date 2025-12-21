@@ -147,23 +147,23 @@ const realProfileApi: ProfileApi = {
     throw new Error('Profile API is not implemented yet');
   },
   async getLearningCourses() {
-    return handleResponse<LearningCourse[]>(
-      await fetch(`${LEARNING_API_BASE}/learning/courses`, {
-        headers: buildHeaders(),
-        credentials: 'include',
-      }),
-    );
+    const res = await fetch(`${LEARNING_API_BASE}/learning/courses`, {
+      headers: buildHeaders(),
+      credentials: 'include',
+    });
+    if (res.status === 404) return [];
+    return handleResponse<LearningCourse[]>(res);
   },
   async getLearningDetails() {
     throw new Error('Profile API is not implemented yet');
   },
   async getAuthoredCourses() {
-    return handleResponse<AuthoredCourse[]>(
-      await fetch(`${API_BASE}/courses/my`, {
-        headers: buildHeaders(),
-        credentials: 'include',
-      }),
-    );
+    const res = await fetch(`${API_BASE}/courses/my`, {
+      headers: buildHeaders(),
+      credentials: 'include',
+    });
+    if (res.status === 404) return [];
+    return handleResponse<AuthoredCourse[]>(res);
   },
   async getAuthoredCourseDetails() {
     throw new Error('Profile API is not implemented yet');
