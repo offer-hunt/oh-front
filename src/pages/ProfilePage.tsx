@@ -88,9 +88,14 @@ export default function ProfilePage() {
       .getProfile()
       .then((data) => {
         if (cancelled) return;
-        setProfile(data);
-        setFormState({ name: data.name, bio: data.bio || '' });
-        setAvatarPreview(data.avatarUrl);
+        const normalizedProfile = {
+          ...data,
+          name: data.name ?? '',
+          bio: data.bio ?? '',
+        };
+        setProfile(normalizedProfile);
+        setFormState({ name: normalizedProfile.name, bio: normalizedProfile.bio || '' });
+        setAvatarPreview(normalizedProfile.avatarUrl);
         setProfileError(null);
         console.log('Profile page opened');
       })
@@ -572,7 +577,7 @@ export default function ProfilePage() {
                 {avatarPreview ? (
                   <img src={avatarPreview} alt={profile.name} />
                 ) : (
-                  <div className="profile-avatar__placeholder">{profile.name[0]}</div>
+                  <div className="profile-avatar__placeholder">{profile.name?.[0] || '?'}</div>
                 )}
               </div>
               <div>
