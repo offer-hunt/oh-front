@@ -378,8 +378,11 @@ const mockCourseApi: CourseApi = {
   },
 };
 
+const GLOBAL_USE_MOCKS = import.meta.env.VITE_USE_MOCKS as string | undefined;
 const USE_MOCKS =
-  (import.meta.env.VITE_COURSES_USE_MOCKS as string | undefined) !== 'false';
+  GLOBAL_USE_MOCKS !== undefined
+    ? GLOBAL_USE_MOCKS === 'true'
+    : (import.meta.env.VITE_COURSES_USE_MOCKS as string | undefined) !== 'false';
 
 const realCourseApi: CourseApi = {
   async listCourses() {

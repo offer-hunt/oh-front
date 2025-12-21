@@ -72,7 +72,11 @@ export interface ProfileApi {
   unenrollFromCourse(courseId: string): Promise<void>;
 }
 
-const USE_MOCKS = (import.meta.env.VITE_PROFILE_USE_MOCKS as string | undefined) !== 'false';
+const GLOBAL_USE_MOCKS = import.meta.env.VITE_USE_MOCKS as string | undefined;
+const USE_MOCKS =
+  GLOBAL_USE_MOCKS !== undefined
+    ? GLOBAL_USE_MOCKS === 'true'
+    : (import.meta.env.VITE_PROFILE_USE_MOCKS as string | undefined) !== 'false';
 const API_BASE = (import.meta.env.VITE_BACKEND_API as string) ?? '/api';
 const LEARNING_API_BASE = (import.meta.env.VITE_LEARNING_API as string | undefined) ?? API_BASE;
 const STORAGE_KEY = 'oh-front-auth-session';
@@ -119,6 +123,7 @@ const realProfileApi: ProfileApi = {
     return handleResponse<UserProfile>(
       await fetch(`${API_BASE}/profile`, {
         headers: buildHeaders(),
+        credentials: 'include',
       }),
     );
   },
@@ -128,6 +133,7 @@ const realProfileApi: ProfileApi = {
         method: 'PUT',
         headers: buildHeaders(),
         body: JSON.stringify(payload),
+        credentials: 'include',
       }),
     );
   },
@@ -144,6 +150,7 @@ const realProfileApi: ProfileApi = {
     return handleResponse<LearningCourse[]>(
       await fetch(`${LEARNING_API_BASE}/learning/courses`, {
         headers: buildHeaders(),
+        credentials: 'include',
       }),
     );
   },
@@ -154,6 +161,7 @@ const realProfileApi: ProfileApi = {
     return handleResponse<AuthoredCourse[]>(
       await fetch(`${API_BASE}/courses/my`, {
         headers: buildHeaders(),
+        credentials: 'include',
       }),
     );
   },
