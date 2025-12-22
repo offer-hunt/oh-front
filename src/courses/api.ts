@@ -5,6 +5,14 @@ import {
   loadCourses,
   upsertCourse,
 } from './storage';
+import {
+  findProgress,
+  initializeCourseProgress,
+  updatePageProgress,
+  createSubmission,
+  updateSubmissionResult,
+  findLatestSubmission,
+} from './learningStorage';
 import { logCourseEvent } from './logger';
 import type {
   Course,
@@ -15,6 +23,19 @@ import type {
   CourseSearchParams,
   EnrollmentStatus,
   VersionSnapshot,
+  CourseProgress,
+  PageCompletionStatus,
+  QuizEvaluationResult,
+  CodeEvaluationResult,
+  DetailedEvaluationResult,
+  AIResponse,
+  PageKind,
+  SupportedLanguage,
+  QuizSubmission,
+  CodeSubmission,
+  DetailedSubmission,
+  CodePage,
+  QuizPage,
 } from './types';
 
 export interface CourseApi {
@@ -34,6 +55,19 @@ export interface CourseApi {
   checkEnrollment(courseId: string, userId: string): Promise<EnrollmentStatus>;
   getAuthorInfo(authorId: string): Promise<CourseAuthor>;
   getAuthorCourses(authorId: string): Promise<CourseSummary[]>;
+
+  // Методы для прохождения курса (learning)
+  getCourseProgress(courseId: string, userId: string): Promise<CourseProgress>;
+  updateProgress(courseId: string, userId: string, pageId: string, status: PageCompletionStatus, score?: number): Promise<void>;
+
+  // Методы для отправки решений и проверки
+  submitQuiz(courseId: string, userId: string, pageId: string, selectedOptionIds: string[]): Promise<QuizEvaluationResult>;
+  submitCode(courseId: string, userId: string, pageId: string, code: string, language: SupportedLanguage): Promise<CodeEvaluationResult>;
+  submitDetailed(courseId: string, userId: string, pageId: string, answer: string): Promise<DetailedEvaluationResult>;
+
+  // Методы для AI-ассистента
+  getAIExplanation(pageId: string, selectedText: string): Promise<AIResponse>;
+  getAIHint(pageId: string, pageKind: PageKind, attemptCount: number): Promise<AIResponse>;
 }
 
 
@@ -376,6 +410,295 @@ const mockCourseApi: CourseApi = {
       summaries.sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
     );
   },
+
+  // ============================================
+  // МЕТОДЫ ДЛЯ ПРОХОЖДЕНИЯ КУРСА (LEARNING)
+  // ============================================
+
+  async getCourseProgress(courseId: string, userId: string): Promise<CourseProgress> {
+    const progress = findProgress(courseId, userId) || initializeCourseProgress(courseId, userId);
+    return delay(progress, 200);
+  },
+
+  async updateProgress(
+    courseId: string,
+    userId: string,
+    pageId: string,
+    status: PageCompletionStatus,
+    score?: number
+  ): Promise<void> {
+    updatePageProgress(courseId, userId, pageId, status, score);
+    return delay(undefined, 150);
+  },
+
+  // ============================================
+  // МЕТОДЫ ДЛЯ ОТПРАВКИ РЕШЕНИЙ И ПРОВЕРКИ
+  // ============================================
+
+  async submitQuiz(
+    courseId: string,
+    userId: string,
+    pageId: string,
+    selectedOptionIds: string[]
+  ): Promise<QuizEvaluationResult> {
+    // Найти страницу теста для получения правильных ответов
+    const course = findCourseById(courseId);
+    if (!course) throw new Error('NOT_FOUND');
+
+    let quizPage: QuizPage | null = null;
+    for (const ch of course.chapters) {
+      for (const l of ch.lessons) {
+        const page = l.pages.find((p) => p.id === pageId && p.kind === 'quiz');
+        if (page) {
+          quizPage = page as QuizPage;
+          break;
+        }
+      }
+      if (quizPage) break;
+    }
+
+    if (!quizPage) throw new Error('PAGE_NOT_FOUND');
+
+    // Проверка ответов
+    const correctOptionIds = quizPage.quiz.options.filter((o) => o.isCorrect).map((o) => o.id);
+    const correctCount = selectedOptionIds.filter((id) => correctOptionIds.includes(id)).length;
+    const incorrectCount = selectedOptionIds.filter((id) => !correctOptionIds.includes(id)).length;
+    const totalCount = quizPage.quiz.options.length;
+
+    // Расчет score: учитываем правильные ответы минус неправильные
+    const score = Math.max(
+      0,
+      Math.round(((correctCount - incorrectCount) / correctOptionIds.length) * 100)
+    );
+
+    const result: QuizEvaluationResult = {
+      status: score === 100 ? 'passed' : score >= 70 ? 'partial' : 'failed',
+      correctCount,
+      totalCount,
+      score,
+      correctOptionIds,
+      feedback:
+        score === 100
+          ? 'Отлично! Все ответы верны!'
+          : score >= 70
+          ? 'Хорошо, но есть ошибки. Попробуйте еще раз.'
+          : 'Есть ошибки. Внимательно изучите материал и попробуйте снова.',
+    };
+
+    // Сохранить решение
+    const submission: QuizSubmission = {
+      kind: 'quiz',
+      pageId,
+      selectedOptionIds,
+      submittedAt: new Date().toISOString(),
+    };
+    const record = createSubmission(courseId, userId, submission);
+    updateSubmissionResult(record.id, result);
+
+    // Обновить прогресс
+    updatePageProgress(courseId, userId, pageId, result.status === 'passed' ? 'completed' : 'failed', score);
+
+    logCourseEvent('Quiz submitted', { courseId, userId, pageId, score, status: result.status });
+
+    return delay(result, 500); // Симуляция времени проверки
+  },
+
+  async submitCode(
+    courseId: string,
+    userId: string,
+    pageId: string,
+    code: string,
+    language: SupportedLanguage
+  ): Promise<CodeEvaluationResult> {
+    // Найти страницу с кодом
+    const course = findCourseById(courseId);
+    if (!course) throw new Error('NOT_FOUND');
+
+    let codePage: CodePage | null = null;
+    for (const ch of course.chapters) {
+      for (const l of ch.lessons) {
+        const page = l.pages.find((p) => p.id === pageId && p.kind === 'code');
+        if (page) {
+          codePage = page as CodePage;
+          break;
+        }
+      }
+      if (codePage) break;
+    }
+
+    if (!codePage) throw new Error('PAGE_NOT_FOUND');
+
+    // Mock оценка: случайно проходит 70-100% тестов
+    const passRate = 0.7 + Math.random() * 0.3;
+    const testResults = codePage.code.testCases.map((tc) => {
+      const passed = Math.random() < passRate;
+      return {
+        testCaseId: tc.id,
+        passed,
+        input: tc.input,
+        expectedOutput: tc.output,
+        actualOutput: passed ? tc.output : 'Неверный результат',
+        error: passed ? undefined : 'Ошибка выполнения или неверный результат',
+      };
+    });
+
+    const passedTests = testResults.filter((r) => r.passed).length;
+    const totalTests = testResults.length;
+    const score = totalTests > 0 ? Math.round((passedTests / totalTests) * 100) : 0;
+
+    const result: CodeEvaluationResult = {
+      status: score === 100 ? 'passed' : score >= 70 ? 'partial' : 'failed',
+      passedTests,
+      totalTests,
+      score,
+      testResults,
+      executionTime: Math.round(50 + Math.random() * 200), // 50-250ms
+      feedback:
+        score === 100
+          ? 'Отлично! Все тесты пройдены!'
+          : `${passedTests} из ${totalTests} тестов пройдено. Проверьте логику работы с непройденными тестами.`,
+    };
+
+    // Сохранить решение
+    const submission: CodeSubmission = {
+      kind: 'code',
+      pageId,
+      code,
+      language,
+      submittedAt: new Date().toISOString(),
+    };
+    const record = createSubmission(courseId, userId, submission);
+    updateSubmissionResult(record.id, result);
+
+    // Обновить прогресс
+    updatePageProgress(
+      courseId,
+      userId,
+      pageId,
+      result.status === 'passed' ? 'completed' : 'in_progress',
+      score
+    );
+
+    logCourseEvent('Code submitted', { courseId, userId, pageId, score, status: result.status });
+
+    return delay(result, 1200); // Более долгая задержка для симуляции выполнения кода
+  },
+
+  async submitDetailed(
+    courseId: string,
+    userId: string,
+    pageId: string,
+    answer: string
+  ): Promise<DetailedEvaluationResult> {
+    // Mock AI оценка: оценка по длине ответа
+    const wordCount = answer.trim().split(/\s+/).length;
+    const score = Math.min(100, Math.round((wordCount / 50) * 100)); // Полный балл за 50+ слов
+
+    const result: DetailedEvaluationResult = {
+      status: score >= 80 ? 'passed' : score >= 60 ? 'partial' : 'failed',
+      score,
+      feedback:
+        score >= 80
+          ? 'Отличный развернутый ответ! Вы показали глубокое понимание темы.'
+          : score >= 60
+          ? 'Хороший ответ, но можно добавить больше деталей и примеров.'
+          : 'Ответ слишком краткий. Добавьте больше информации, примеров и объяснений.',
+      suggestions:
+        score < 80
+          ? [
+              'Добавьте конкретные примеры',
+              'Объясните концепцию подробнее',
+              'Укажите практическое применение',
+              'Структурируйте ответ: введение, основная часть, заключение',
+            ]
+          : undefined,
+    };
+
+    // Сохранить решение
+    const submission: DetailedSubmission = {
+      kind: 'detailed',
+      pageId,
+      answer,
+      submittedAt: new Date().toISOString(),
+    };
+    const record = createSubmission(courseId, userId, submission);
+    updateSubmissionResult(record.id, result);
+
+    // Обновить прогресс
+    updatePageProgress(
+      courseId,
+      userId,
+      pageId,
+      result.status === 'passed' ? 'completed' : 'in_progress',
+      score
+    );
+
+    logCourseEvent('Detailed answer submitted', { courseId, userId, pageId, score, status: result.status });
+
+    return delay(result, 800); // Симуляция AI проверки
+  },
+
+  // ============================================
+  // МЕТОДЫ ДЛЯ AI-АССИСТЕНТА
+  // ============================================
+
+  async getAIExplanation(pageId: string, selectedText: string): Promise<AIResponse> {
+    // Mock AI объяснение
+    const mockExplanations = [
+      `Давайте разберём это простыми словами:\n\n"${selectedText.substring(0, 50)}${selectedText.length > 50 ? '...' : ''}"\n\nЭто означает, что... [упрощённое объяснение концепции]. Если представить это на примере из реальной жизни, это как... [аналогия].`,
+      `Интересный вопрос! Вот объяснение:\n\n${selectedText.substring(0, 50)}${selectedText.length > 50 ? '...' : ''}\n\nПроще говоря, это работает следующим образом: [пошаговое объяснение]. Это важно понимать, потому что... [практическое применение].`,
+      `Отличный выбор текста для разбора!\n\n"${selectedText.substring(0, 50)}${selectedText.length > 50 ? '...' : ''}"\n\nКлючевая идея здесь в том, что... [основная концепция]. Давайте рассмотрим на конкретном примере... [пример с кодом или реальной ситуацией].`,
+    ];
+
+    const randomExplanation = mockExplanations[Math.floor(Math.random() * mockExplanations.length)];
+
+    logCourseEvent('AI explanation requested', { pageId, textLength: selectedText.length });
+
+    return delay(
+      {
+        action: 'explain',
+        content: randomExplanation,
+        timestamp: new Date().toISOString(),
+      },
+      600
+    );
+  },
+
+  async getAIHint(pageId: string, pageKind: PageKind, attemptCount: number): Promise<AIResponse> {
+    const hints: Record<PageKind, string[]> = {
+      quiz: [
+        'Внимательно прочитайте вопрос еще раз и обратите внимание на ключевые слова.',
+        'Один из ответов явно неверный - попробуйте исключить его сначала.',
+        'Подумайте, какие варианты логически связаны с темой урока.',
+      ],
+      code: [
+        'Проверьте граничные условия: что происходит с пустым входом, с одним элементом, с максимальным размером?',
+        'Обратите внимание на типы данных: возможно, нужно преобразование.',
+        'Попробуйте разбить задачу на несколько шагов и решить каждый отдельно.',
+        'Проверьте, правильно ли вы обрабатываете edge cases в своём решении.',
+      ],
+      detailed: [
+        'Структурируйте ответ: введение (что это), основная часть (как работает), заключение (зачем нужно).',
+        'Добавьте конкретные примеры из практики для иллюстрации концепции.',
+        'Объясните не только "что", но и "почему" - это покажет глубину понимания.',
+      ],
+      theory: ['Перечитайте ключевые абзацы и выделите главные идеи.'],
+    };
+
+    const hintList = hints[pageKind] || ['Попробуйте еще раз, внимательно изучив материал.'];
+    const hintIndex = Math.min(attemptCount, hintList.length - 1);
+
+    logCourseEvent('AI hint requested', { pageId, pageKind, attemptCount });
+
+    return delay(
+      {
+        action: 'hint',
+        content: hintList[hintIndex],
+        timestamp: new Date().toISOString(),
+      },
+      500
+    );
+  },
 };
 
 const USE_MOCKS =
@@ -419,6 +742,27 @@ const realCourseApi: CourseApi = {
     throw new Error('Real course API is not implemented yet');
   },
   async getAuthorCourses() {
+    throw new Error('Real course API is not implemented yet');
+  },
+  async getCourseProgress() {
+    throw new Error('Real course API is not implemented yet');
+  },
+  async updateProgress() {
+    throw new Error('Real course API is not implemented yet');
+  },
+  async submitQuiz() {
+    throw new Error('Real course API is not implemented yet');
+  },
+  async submitCode() {
+    throw new Error('Real course API is not implemented yet');
+  },
+  async submitDetailed() {
+    throw new Error('Real course API is not implemented yet');
+  },
+  async getAIExplanation() {
+    throw new Error('Real course API is not implemented yet');
+  },
+  async getAIHint() {
     throw new Error('Real course API is not implemented yet');
   },
 };

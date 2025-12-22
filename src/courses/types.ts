@@ -202,3 +202,155 @@ export interface EnrollmentStatus {
 export interface CourseWithEnrollment extends Course {
   enrollment?: EnrollmentStatus;
 }
+
+// ============================================
+// ТИПЫ ДЛЯ ПРОХОЖДЕНИЯ КУРСА (LEARNING)
+// ============================================
+
+// Статус завершения страницы
+export type PageCompletionStatus = 'not_started' | 'in_progress' | 'completed' | 'failed';
+
+// Прогресс по конкретной странице
+export interface PageProgress {
+  pageId: string;
+  status: PageCompletionStatus;
+  startedAt?: string; // ISO дата начала
+  completedAt?: string; // ISO дата завершения
+  attempts: number; // Количество попыток
+  lastAttemptAt?: string; // ISO дата последней попытки
+  score?: number; // Оценка 0-100 (для quiz, code, detailed)
+}
+
+// Прогресс по всему курсу для пользователя
+export interface CourseProgress {
+  courseId: string;
+  userId: string;
+  startedAt: string; // ISO дата начала курса
+  lastAccessedAt: string; // ISO дата последнего доступа
+  lastPageId?: string; // ID последней просмотренной страницы (для возврата)
+  pageProgress: Record<string, PageProgress>; // Маппинг pageId -> прогресс
+  completionPercentage: number; // Процент завершения 0-100
+}
+
+// ============================================
+// ТИПЫ ДЛЯ РЕШЕНИЙ (SUBMISSIONS)
+// ============================================
+
+// Статус проверки решения
+export type SubmissionStatus = 'pending' | 'checking' | 'passed' | 'failed' | 'partial';
+
+// Решение теста
+export interface QuizSubmission {
+  kind: 'quiz';
+  pageId: string;
+  selectedOptionIds: string[]; // ID выбранных опций
+  submittedAt: string; // ISO дата отправки
+}
+
+// Решение кодовой задачи
+export interface CodeSubmission {
+  kind: 'code';
+  pageId: string;
+  code: string; // Код решения
+  language: SupportedLanguage; // Язык программирования
+  submittedAt: string; // ISO дата отправки
+}
+
+// Решение с развёрнутым ответом
+export interface DetailedSubmission {
+  kind: 'detailed';
+  pageId: string;
+  answer: string; // Текст ответа
+  submittedAt: string; // ISO дата отправки
+}
+
+// Union type для всех типов решений
+export type Submission = QuizSubmission | CodeSubmission | DetailedSubmission;
+
+// ============================================
+// ТИПЫ ДЛЯ РЕЗУЛЬТАТОВ ПРОВЕРКИ (EVALUATION)
+// ============================================
+
+// Результат проверки теста
+export interface QuizEvaluationResult {
+  status: SubmissionStatus;
+  correctCount: number; // Количество правильных ответов
+  totalCount: number; // Общее количество вопросов
+  score: number; // Оценка 0-100
+  correctOptionIds: string[]; // ID правильных опций (для отображения)
+  feedback?: string; // Обратная связь
+}
+
+// Результат одного теста кодовой задачи
+export interface CodeTestResult {
+  testCaseId: string;
+  passed: boolean; // Тест прошёл или нет
+  input: string; // Входные данные
+  expectedOutput: string; // Ожидаемый результат
+  actualOutput?: string; // Фактический результат
+  error?: string; // Сообщение об ошибке (если тест не прошёл)
+}
+
+// Результат проверки кодовой задачи
+export interface CodeEvaluationResult {
+  status: SubmissionStatus;
+  passedTests: number; // Количество пройденных тестов
+  totalTests: number; // Общее количество тестов
+  score: number; // Оценка 0-100
+  testResults: CodeTestResult[]; // Результаты каждого теста
+  executionTime?: number; // Время выполнения в мс
+  feedback?: string; // Обратная связь
+}
+
+// Результат проверки развёрнутого ответа
+export interface DetailedEvaluationResult {
+  status: SubmissionStatus;
+  score: number; // Оценка 0-100
+  feedback: string; // Обратная связь от проверяющего/AI
+  suggestions?: string[]; // Рекомендации по улучшению
+}
+
+// Union type для всех типов результатов
+export type EvaluationResult = QuizEvaluationResult | CodeEvaluationResult | DetailedEvaluationResult;
+
+// Запись о решении с результатом
+export interface SubmissionRecord {
+  id: string; // ID записи
+  courseId: string;
+  userId: string;
+  submission: Submission; // Само решение
+  result?: EvaluationResult; // Результат проверки (может быть undefined если ещё проверяется)
+  createdAt: string; // ISO дата создания
+}
+
+// ============================================
+// ТИПЫ ДЛЯ AI-АССИСТЕНТА
+// ============================================
+
+// Типы действий AI-ассистента
+export type AIAssistantAction = 'explain' | 'hint' | 'example';
+
+// Запрос к AI-ассистенту
+export interface AIRequest {
+  action: AIAssistantAction;
+  pageId: string;
+  pageKind: PageKind;
+  context: {
+    selectedText?: string; // Для объяснения выделенного текста (theory)
+    question?: string; // Для подсказок по задачам
+    attemptCount?: number; // Количество попыток (для адаптивных подсказок)
+  };
+}
+
+// Ответ от AI-ассистента
+export interface AIResponse {
+  action: AIAssistantAction;
+  content: string; // Текст ответа
+  timestamp: string; // ISO дата/время ответа
+}
+
+// Лимиты использования AI
+export interface AIUsageLimit {
+  hintsUsed: number; // Использовано подсказок
+  maxHints: number; // Максимум подсказок (например, 3 на страницу)
+}
