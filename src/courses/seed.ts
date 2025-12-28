@@ -384,11 +384,13 @@ tsc --version
                         id: generateId('file'),
                         name: 'TypeScript-Cheatsheet.pdf',
                         size: 245678,
+                        type: 'application/pdf',
                       },
                       {
                         id: generateId('file'),
                         name: 'tsconfig-examples.zip',
                         size: 12345,
+                        type: 'application/zip',
                       },
                     ],
                   },
@@ -665,7 +667,8 @@ const multiply: MathOperation = (a, b) => a * b;
                   kind: 'detailed',
                   detailed: {
                     description: 'Объясните своими словами, в чём основное различие между интерфейсами (interface) и типами (type) в TypeScript. Когда следует использовать interface, а когда type? Приведите примеры.',
-                    answerMode: 'ai',
+                    answer: '',
+                    answerMode: 'prompt',
                   },
                 },
               ],
@@ -979,7 +982,8 @@ const pages: PageInfo = {
                   kind: 'detailed',
                   detailed: {
                     description: 'Опишите реальный сценарий использования хотя бы трёх Utility Types (Partial, Pick, Omit, Record и т.д.). Объясните, как они помогают решить конкретную задачу в вашем коде.',
-                    answerMode: 'ai',
+                    answer: '',
+                    answerMode: 'prompt',
                   },
                 },
               ],

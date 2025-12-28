@@ -9,15 +9,12 @@ import type {
   DetailedAnswerPageContent,
   AttachedFile,
 } from '@/courses/types';
-import {
-  enhanceTextWithAi,
-  generateCodeTaskWithAi,
-  generateTestQuestionsWithAi,
-} from '@/courses/ai';
+import { useTeacherAI } from '@/courses/ai';
 import { Icons } from '@/components/Icons';
 
 interface PageEditorProps {
   page: LessonPage;
+  lessonId: string;
   onUpdate: (updatedPage: LessonPage) => void;
   onSave: () => void;
   notify: (msg: string, type?: 'success' | 'error') => void;
@@ -40,7 +37,8 @@ const LANGUAGES = [
   { value: 'csharp', label: 'C#', ext: 'cs', icon: '🟣' },
 ];
 
-export function PageEditor({ page, onUpdate, onSave, notify }: PageEditorProps) {
+export function PageEditor({ page, lessonId, onUpdate, onSave, notify }: PageEditorProps) {
+  const { enhanceTextWithAi, generateTestQuestionsWithAi, generateCodeTaskWithAi } = useTeacherAI();
   const [aiLoading, setAiLoading] = useState(false);
   const [aiModal, setAiModal] = useState<'text' | 'quiz' | 'code' | null>(null);
   const [showPreview, setShowPreview] = useState(true);
@@ -845,7 +843,7 @@ const example = 'код';
                             onClick={() =>
                               handleAiAction(async () => {
                                 const field = page.theory.mode === 'markdown' ? 'markdown' : 'text';
-                                const res = await enhanceTextWithAi(page.theory[field] || '', item.mode as any);
+                                const res = await enhanceTextWithAi(page.id, page.theory[field] || '', item.mode as any);
                                 updateTheory({ [field]: res } as any);
                               })
                             }
@@ -870,7 +868,7 @@ const example = 'код';
                         className="w-full py-4 rounded-xl bg-gradient-to-r from-violet-500 to-purple-600 text-white font-semibold hover:opacity-90 transition-all"
                         onClick={() =>
                           handleAiAction(async () => {
-                            const qs = await generateTestQuestionsWithAi(page.title, {
+                            const qs = await generateTestQuestionsWithAi(lessonId, page.title, {
                               count: 1,
                               type: 'single',
                               difficulty: 'medium',
@@ -908,7 +906,7 @@ const example = 'код';
                         className="w-full py-4 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-600 text-white font-semibold hover:opacity-90 transition-all"
                         onClick={() =>
                           handleAiAction(async () => {
-                            const res = await generateCodeTaskWithAi({
+                            const res = await generateCodeTaskWithAi(lessonId, {
                               theme: codeParams.theme || page.title,
                               language: (page as any).code?.language || 'javascript',
                               difficulty: 'medium',

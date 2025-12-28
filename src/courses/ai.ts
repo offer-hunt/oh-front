@@ -1,3 +1,4 @@
+import { useApi } from '@/api/client';
 import type {
   AiTestQuestionType,
   AiTextMode,
@@ -6,6 +7,10 @@ import type {
 } from './types';
 import { generateId } from './storage';
 import { logCourseEvent } from './logger';
+
+/**
+ * Teacher AI API - функции для помощи авторам курсов
+ */
 
 export interface GeneratedTestQuestion {
   id: string;
@@ -34,116 +39,227 @@ export interface GeneratedCodeTask {
   sampleSolution: string;
 }
 
-export async function enhanceTextWithAi(
-  text: string,
-  mode: AiTextMode,
-): Promise<string> {
-  const trimmed = text.trim();
-  if (!trimmed) {
-    logCourseEvent('AI invalid response', { reason: 'empty-input' });
-    return text;
-  }
+// API Request/Response types
 
-  let prefix = '';
+interface EnhanceTextRequest {
+  text: string;
+  action: 'SIMPLIFY' | 'ACADEMIC' | 'GRAMMAR' | 'EXPAND' | 'EXAMPLE';
+}
+
+interface EnhanceTextResponse {
+  enhancedText: string;
+}
+
+interface GenerateTestRequest {
+  topic?: string;
+  questionType: string;
+  questionCount: number;
+  difficulty: string;
+}
+
+interface GenerateTestResponse {
+  questions: Array<{
+    question: string;
+    options: string[];
+    correctAnswerIndices: number[];
+  }>;
+}
+
+interface GenerateCodeTaskRequest {
+  topic: string;
+  language: string;
+  difficulty: string;
+  requirements?: string;
+}
+
+interface GenerateCodeTaskResponse {
+  description: string;
+  exampleSolution: string;
+  testCases: Array<{ input: string; output: string }>;
+}
+
+// Helper: Map AiTextMode to API action
+const mapModeToAction = (
+  mode: AiTextMode
+): 'SIMPLIFY' | 'ACADEMIC' | 'GRAMMAR' | 'EXPAND' | 'EXAMPLE' => {
   switch (mode) {
     case 'simplify':
-      prefix = 'Упрощённый вариант:\n\n';
-      break;
+      return 'SIMPLIFY';
     case 'academic':
-      prefix = 'Более академичная формулировка:\n\n';
-      break;
+      return 'ACADEMIC';
     case 'grammar':
-      prefix = 'Исправленный текст:\n\n';
-      break;
+      return 'GRAMMAR';
     case 'expand':
-      prefix = 'Расширенный вариант:\n\n';
-      break;
+      return 'EXPAND';
     case 'example':
-      prefix = 'Пример для иллюстрации:\n\n';
-      break;
+      return 'EXAMPLE';
     default:
-      prefix = '';
+      return 'GRAMMAR';
   }
+};
 
-  const result = `${prefix}${trimmed}\n\n(Сгенерировано AI – режим: ${mode})`;
-  logCourseEvent('AI text enhancement success', { mode });
-  return result;
-}
+/**
+ * Hook для работы с AI API для авторов курсов
+ */
+export const useTeacherAI = () => {
+  const { apiFetch } = useApi();
 
-export async function generateTestQuestionsWithAi(
-  context: string,
-  params: GenerateTestParams,
-): Promise<GeneratedTestQuestion[]> {
-  const baseContext = (params.theme || context || '').trim();
+  /**
+   * Улучшить текст с помощью AI
+   * @param pageId - ID страницы
+   * @param text - Исходный текст
+   * @param mode - Режим улучшения
+   */
+  const enhanceTextWithAi = async (
+    pageId: string,
+    text: string,
+    mode: AiTextMode
+  ): Promise<string> => {
+    const trimmed = text.trim();
+    if (!trimmed) {
+      logCourseEvent('AI invalid response', { reason: 'empty-input' });
+      return text;
+    }
 
-  if (!baseContext || baseContext.length < 50) {
-    const error = new Error('INSUFFICIENT_CONTEXT');
-    logCourseEvent('AI test generation insufficient context', { reason: 'short' });
-    throw error;
-  }
+    try {
+      const response = await apiFetch<EnhanceTextResponse>(
+        `/pages/${pageId}/ai/enhance-text`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            text: trimmed,
+            action: mapModeToAction(mode),
+          } as EnhanceTextRequest),
+        }
+      );
 
-  const count = Math.min(Math.max(params.count, 1), 10);
+      logCourseEvent('AI text enhancement success', { mode });
+      return response.enhancedText;
+    } catch (error) {
+      logCourseEvent('AI text enhancement failed', { mode, error });
+      throw error;
+    }
+  };
 
-  const questions: GeneratedTestQuestion[] = [];
+  /**
+   * Сгенерировать тестовые вопросы с помощью AI
+   * @param lessonId - ID урока
+   * @param context - Контекст урока (заголовок или описание)
+   * @param params - Параметры генерации
+   */
+  const generateTestQuestionsWithAi = async (
+    lessonId: string,
+    context: string,
+    params: GenerateTestParams
+  ): Promise<GeneratedTestQuestion[]> => {
+    const baseContext = (params.theme || context || '').trim();
 
-  for (let i = 0; i < count; i += 1) {
-    const qId = generateId('q');
-    const qText = `Вопрос ${i + 1} по теме "${baseContext.slice(0, 40)}..."`;
+    if (!baseContext || baseContext.length < 50) {
+      const error = new Error('INSUFFICIENT_CONTEXT');
+      logCourseEvent('AI test generation insufficient context', {
+        reason: 'short',
+      });
+      throw error;
+    }
 
-    const opts = [
-      { text: 'Вариант A', isCorrect: true },
-      { text: 'Вариант B', isCorrect: false },
-      { text: 'Вариант C', isCorrect: false },
-      { text: 'Вариант D', isCorrect: false },
-    ];
+    const count = Math.min(Math.max(params.count, 1), 10);
 
-    questions.push({
-      id: qId,
-      question: qText,
-      options: opts,
-    });
-  }
+    try {
+      const response = await apiFetch<GenerateTestResponse>(
+        `/lessons/${lessonId}/ai/generate-test`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            topic: params.theme || context,
+            questionType: params.type,
+            questionCount: count,
+            difficulty: params.difficulty,
+          } as GenerateTestRequest),
+        }
+      );
 
-  logCourseEvent('AI test generation success', {
-    type: params.type,
-    count: questions.length,
-  });
+      // Transform API response to internal format
+      const questions: GeneratedTestQuestion[] = response.questions.map(
+        (q) => {
+          const options = q.options.map((text, index) => ({
+            text,
+            isCorrect: q.correctAnswerIndices.includes(index),
+          }));
 
-  return questions;
-}
+          return {
+            id: generateId('q'),
+            question: q.question,
+            options,
+          };
+        }
+      );
 
-export async function generateCodeTaskWithAi(
-  params: GenerateCodeTaskParams,
-): Promise<GeneratedCodeTask> {
-  const req = (params.requirements || '').toLowerCase();
+      logCourseEvent('AI test generation success', {
+        type: params.type,
+        count: questions.length,
+      });
 
-  // Специальный кейс из ТЗ: противоречивые параметры
-  if (params.language === 'python' && req.includes('linq')) {
-    logCourseEvent('AI code task generation invalid parameters', { params });
-    const err = new Error('INVALID_PARAMETERS');
-    throw err;
-  }
+      return questions;
+    } catch (error) {
+      logCourseEvent('AI test generation failed', { params, error });
+      throw error;
+    }
+  };
 
-  const baseTheme = params.theme.trim() || 'задача по программированию';
+  /**
+   * Сгенерировать задачу с кодом с помощью AI
+   * @param lessonId - ID урока
+   * @param params - Параметры генерации
+   */
+  const generateCodeTaskWithAi = async (
+    lessonId: string,
+    params: GenerateCodeTaskParams
+  ): Promise<GeneratedCodeTask> => {
+    const req = (params.requirements || '').toLowerCase();
 
-  const description = `Реализуйте ${baseTheme} на языке ${params.language}. Уровень сложности: ${params.difficulty}. ${params.requirements || ''}`.trim();
+    // Специальный кейс из ТЗ: противоречивые параметры
+    if (params.language === 'python' && req.includes('linq')) {
+      logCourseEvent('AI code task generation invalid parameters', { params });
+      const err = new Error('INVALID_PARAMETERS');
+      throw err;
+    }
 
-  const testCases = [
-    { input: '1 2 3', output: '6' },
-    { input: '10 20', output: '30' },
-  ];
+    const baseTheme = params.theme.trim() || 'задача по программированию';
 
-  const sampleSolution = `// Пример решения (заглушка AI)\n// Язык: ${params.language}\n`;
+    try {
+      const response = await apiFetch<GenerateCodeTaskResponse>(
+        `/lessons/${lessonId}/ai/generate-code-task`,
+        {
+          method: 'POST',
+          body: JSON.stringify({
+            topic: baseTheme,
+            language: params.language,
+            difficulty: params.difficulty,
+            requirements: params.requirements,
+          } as GenerateCodeTaskRequest),
+        }
+      );
 
-  logCourseEvent('AI code task generation success', {
-    language: params.language,
-    difficulty: params.difficulty,
-  });
+      logCourseEvent('AI code task generation success', {
+        language: params.language,
+        difficulty: params.difficulty,
+      });
+
+      return {
+        description: response.description,
+        language: params.language,
+        testCases: response.testCases,
+        sampleSolution: response.exampleSolution,
+      };
+    } catch (error) {
+      logCourseEvent('AI code task generation failed', { params, error });
+      throw error;
+    }
+  };
 
   return {
-    description,
-    language: params.language,
-    testCases,
-    sampleSolution,
+    enhanceTextWithAi,
+    generateTestQuestionsWithAi,
+    generateCodeTaskWithAi,
   };
-}
+};
