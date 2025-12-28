@@ -14,6 +14,11 @@ import {
   findLatestSubmission,
 } from './learningStorage';
 import { logCourseEvent } from './logger';
+import {
+  submitQuizToEvaluation,
+  submitCodeToEvaluation,
+  submitTextToEvaluation,
+} from '@/evaluation/api';
 import type {
   Course,
   CourseAuthor,
@@ -704,65 +709,131 @@ const mockCourseApi: CourseApi = {
 const USE_MOCKS =
   (import.meta.env.VITE_COURSES_USE_MOCKS as string | undefined) !== 'false';
 
+// Helper для создания базового fetch с авторизацией
+async function createAuthenticatedFetch() {
+  const base = (import.meta.env.VITE_BACKEND_API as string) ?? '/api';
+
+  return async <T = unknown>(path: string, init?: RequestInit): Promise<T> => {
+    const headers = new Headers(init?.headers);
+    if (!headers.has('Content-Type')) {
+      headers.set('Content-Type', 'application/json');
+    }
+
+    // Получаем токен из localStorage (AuthContext использует oh-front-auth-session)
+    const sessionStr = localStorage.getItem('oh-front-auth-session');
+    if (sessionStr) {
+      try {
+        const session = JSON.parse(sessionStr);
+        if (session.accessToken) {
+          headers.set('Authorization', `Bearer ${session.accessToken}`);
+        }
+      } catch (e) {
+        // Ignore parsing errors
+      }
+    }
+
+    const res = await fetch(`${base}${path}`, {
+      ...init,
+      headers,
+    });
+
+    if (!res.ok) {
+      let msg = `API error ${res.status}`;
+      try {
+        const json = await res.json();
+        if (json.message) msg = json.message;
+      } catch {
+        // Ignore
+      }
+      throw new Error(msg);
+    }
+
+    const ct = res.headers.get('content-type') || '';
+    if (ct.includes('application/json')) {
+      return (await res.json()) as T;
+    }
+    return (await res.text()) as unknown as T;
+  };
+}
+
 const realCourseApi: CourseApi = {
-  async listCourses() {
+  async listCourses(): Promise<CourseSummary[]> {
     throw new Error('Real course API is not implemented yet');
   },
-  async getCourse() {
+  async getCourse(): Promise<Course> {
     throw new Error('Real course API is not implemented yet');
   },
-  async createCourse() {
+  async createCourse(): Promise<Course> {
     throw new Error('Real course API is not implemented yet');
   },
-  async updateCourse() {
+  async updateCourse(): Promise<Course> {
     throw new Error('Real course API is not implemented yet');
   },
-  async deleteCourse() {
+  async deleteCourse(): Promise<void> {
     throw new Error('Real course API is not implemented yet');
   },
-  async saveVersion() {
+  async saveVersion(): Promise<VersionSnapshot> {
     throw new Error('Real course API is not implemented yet');
   },
-  async restoreVersion() {
+  async restoreVersion(): Promise<Course> {
     throw new Error('Real course API is not implemented yet');
   },
-  async searchCourses() {
+  async searchCourses(): Promise<CourseSummary[]> {
     throw new Error('Real course API is not implemented yet');
   },
-  async getCoursePublic() {
+  async getCoursePublic(): Promise<CourseWithEnrollment> {
     throw new Error('Real course API is not implemented yet');
   },
-  async enrollCourse() {
+  async enrollCourse(): Promise<EnrollmentStatus> {
     throw new Error('Real course API is not implemented yet');
   },
-  async checkEnrollment() {
+  async checkEnrollment(): Promise<EnrollmentStatus> {
     throw new Error('Real course API is not implemented yet');
   },
-  async getAuthorInfo() {
+  async getAuthorInfo(): Promise<CourseAuthor> {
     throw new Error('Real course API is not implemented yet');
   },
-  async getAuthorCourses() {
+  async getAuthorCourses(): Promise<CourseSummary[]> {
     throw new Error('Real course API is not implemented yet');
   },
-  async getCourseProgress() {
+  async getCourseProgress(): Promise<CourseProgress> {
     throw new Error('Real course API is not implemented yet');
   },
-  async updateProgress() {
+  async updateProgress(): Promise<void> {
     throw new Error('Real course API is not implemented yet');
   },
-  async submitQuiz() {
+  async submitQuiz(
+    courseId: string,
+    userId: string,
+    pageId: string,
+    selectedOptionIds: string[]
+  ): Promise<QuizEvaluationResult> {
+    const apiFetch = await createAuthenticatedFetch();
+    return submitQuizToEvaluation(apiFetch, courseId, userId, pageId, selectedOptionIds);
+  },
+  async submitCode(
+    courseId: string,
+    userId: string,
+    pageId: string,
+    code: string,
+    language: SupportedLanguage
+  ): Promise<CodeEvaluationResult> {
+    const apiFetch = await createAuthenticatedFetch();
+    return submitCodeToEvaluation(apiFetch, courseId, userId, pageId, code, language);
+  },
+  async submitDetailed(
+    courseId: string,
+    userId: string,
+    pageId: string,
+    answer: string
+  ): Promise<DetailedEvaluationResult> {
+    const apiFetch = await createAuthenticatedFetch();
+    return submitTextToEvaluation(apiFetch, courseId, userId, pageId, answer);
+  },
+  async getAIExplanation(): Promise<AIResponse> {
     throw new Error('Real course API is not implemented yet');
   },
-  async submitCode() {
-    throw new Error('Real course API is not implemented yet');
-  },
-  async submitDetailed() {
-    throw new Error('Real course API is not implemented yet');
-  },
-  async getAIExplanation() {
-    throw new Error('Real course API is not implemented yet');
-  },
-  async getAIHint() {
+  async getAIHint(): Promise<AIResponse> {
     throw new Error('Real course API is not implemented yet');
   },
 };
