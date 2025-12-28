@@ -1,9 +1,10 @@
-import { Link, Outlet, useLocation } from 'react-router-dom';
+import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { useAuth } from '@/auth/AuthContext';
 
 export default function App() {
-  const { user, isAuthenticated } = useAuth();
+  const { user, isAuthenticated, logout } = useAuth();
   const location = useLocation();
+  const navigate = useNavigate();
 
   // Если мы в редакторе курса, мы скрываем общую шапку,
   // так как у редактора своя панель инструментов.
@@ -12,6 +13,11 @@ export default function App() {
   if (isEditor) {
     return <Outlet />;
   }
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
 
   return (
     <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
@@ -27,10 +33,15 @@ export default function App() {
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
             {isAuthenticated ? (
-              <Link to="/profile" className="app-nav__user" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
-                <span style={{ opacity: 0.6 }}>👤</span>
-                {user?.name || user?.email}
-              </Link>
+              <>
+                <Link to="/profile" className="app-nav__user" style={{ display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+                  <span style={{ opacity: 0.6 }}>👤</span>
+                  {user?.name || user?.email}
+                </Link>
+                <button type="button" className="btn btn-ghost btn-sm" onClick={handleLogout}>
+                  Выйти
+                </button>
+              </>
             ) : (
               <Link to="/login" className="btn btn-primary btn-sm">Войти</Link>
             )}
