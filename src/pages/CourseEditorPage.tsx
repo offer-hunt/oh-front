@@ -283,6 +283,7 @@ export default function CourseEditorPage() {
                         <div className="content-card animate-[fadeIn_0.3s]">
                             <PageEditor
                                 page={getSelectedPage()!}
+                                lessonId={selLessonId!}
                                 onUpdate={handlePageUpdate}
                                 onSave={() => { handleUpdateCourse(course); notify('Сохранено'); }}
                                 notify={notify}
