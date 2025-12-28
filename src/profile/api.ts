@@ -21,6 +21,28 @@ interface UserProfileResponse {
   audience?: string[] | null;
 }
 
+interface LearningEnrollmentResponse {
+  courseId: string;
+  status: 'IN_PROGRESS' | 'COMPLETED' | 'REVOKED';
+  enrolledAt?: string | null;
+  startedAt?: string | null;
+  completedAt?: string | null;
+  lastActivityAt?: string | null;
+}
+
+interface CourseDtoResponse {
+  id: string;
+  title: string;
+  status: 'PUBLISHED' | 'DRAFT' | 'ARCHIVED';
+  membersCount?: number | null;
+  avgCompletion?: number | null;
+  avgRating?: number | null;
+  createdAt?: string | null;
+  updatedAt?: string | null;
+  publishedAt?: string | null;
+  lessons?: Array<unknown> | null;
+}
+
 export type LearningStatus = 'in_progress' | 'completed' | 'not_started';
 export type AuthoredStatus = 'published' | 'draft' | 'archived';
 
@@ -69,6 +91,7 @@ export interface ProfileUpdateInput {
 export interface PasswordChangeInput {
   current: string;
   next: string;
+  confirm?: string;
 }
 
 export interface ProfileApi {
@@ -79,7 +102,7 @@ export interface ProfileApi {
   changePassword(payload: PasswordChangeInput): Promise<void>;
   getLearningCourses(): Promise<LearningCourse[]>;
   getLearningDetails(courseId: string): Promise<LearningCourse | null>;
-  getAuthoredCourses(): Promise<AuthoredCourse[]>;
+  getAuthoredCourses(statuses?: AuthoredStatus[]): Promise<AuthoredCourse[]>;
   getAuthoredCourseDetails(courseId: string): Promise<AuthoredCourse | null>;
   exportUserData(): Promise<{ filename: string; content: string; mimeType: string }>;
   deleteAccount(payload: { password: string }): Promise<void>;
@@ -138,6 +161,57 @@ const mapProfileResponse = (data: UserProfileResponse): UserProfile => ({
   avatarUrl: data.avatarUrl ?? undefined,
 });
 
+const mapEnrollmentStatus = (status: LearningEnrollmentResponse['status']): LearningStatus => {
+  if (status === 'COMPLETED') return 'completed';
+  if (status === 'IN_PROGRESS') return 'in_progress';
+  return 'not_started';
+};
+
+const formatDate = (value?: string | null): string => {
+  if (!value) return '';
+  const parsed = new Date(value);
+  if (Number.isNaN(parsed.getTime())) return '';
+  return parsed.toISOString().slice(0, 10);
+};
+
+const pickEnrollmentDate = (data: LearningEnrollmentResponse): string => {
+  return formatDate(data.lastActivityAt ?? data.completedAt ?? data.startedAt ?? data.enrolledAt ?? null);
+};
+
+const mapEnrollmentResponse = (data: LearningEnrollmentResponse): LearningCourse => ({
+  id: data.courseId,
+  title: '',
+  author: '',
+  progress: 0,
+  status: mapEnrollmentStatus(data.status),
+  lastActivity: pickEnrollmentDate(data),
+});
+
+const mapCourseStatus = (status: CourseDtoResponse['status']): AuthoredStatus => {
+  if (status === 'PUBLISHED') return 'published';
+  if (status === 'ARCHIVED') return 'archived';
+  return 'draft';
+};
+
+const normalizePercent = (value?: number | null): number => {
+  if (value == null || Number.isNaN(value)) return 0;
+  if (value <= 1) return Math.round(value * 100);
+  return Math.round(value);
+};
+
+const mapCourseResponse = (data: CourseDtoResponse): AuthoredCourse => ({
+  id: data.id,
+  title: data.title ?? '',
+  status: mapCourseStatus(data.status),
+  students: data.membersCount ?? 0,
+  averageProgress: normalizePercent(data.avgCompletion),
+  createdAt: data.createdAt ?? '',
+  updatedAt: data.updatedAt ?? '',
+  rating: data.avgRating ?? undefined,
+  lessons: data.lessons?.length ?? undefined,
+  publishedAt: data.publishedAt ?? undefined,
+});
+
 const realProfileApi: ProfileApi = {
   async getProfile() {
     const data = await handleResponse<UserProfileResponse>(
@@ -181,30 +255,60 @@ const realProfileApi: ProfileApi = {
       }),
     );
   },
-  async changePassword() {
-    throw new Error('Profile API is not implemented yet');
+  async changePassword(payload) {
+    await handleResponse(
+      await fetch(`${API_BASE}/auth/password/change`, {
+        method: 'POST',
+        headers: buildHeaders(),
+        body: JSON.stringify({
+          currentPassword: payload.current,
+          newPassword: payload.next,
+          newPasswordConfirmation: payload.confirm ?? payload.next,
+        }),
+        credentials: 'include',
+      }),
+    );
   },
   async getLearningCourses() {
-    const res = await fetch(`${LEARNING_API_BASE}/learning/courses`, {
+    const res = await fetch(`${LEARNING_API_BASE}/learning/enrollments`, {
       headers: buildHeaders(),
       credentials: 'include',
     });
     if (res.status === 404) return [];
-    return handleResponse<LearningCourse[]>(res);
+    const data = await handleResponse<LearningEnrollmentResponse[]>(res);
+    return data.map(mapEnrollmentResponse);
   },
-  async getLearningDetails() {
-    throw new Error('Profile API is not implemented yet');
+  async getLearningDetails(courseId: string) {
+    const res = await fetch(`${LEARNING_API_BASE}/learning/enrollments/${courseId}`, {
+      headers: buildHeaders(),
+      credentials: 'include',
+    });
+    if (res.status === 404) return null;
+    const data = await handleResponse<LearningEnrollmentResponse>(res);
+    return mapEnrollmentResponse(data);
   },
-  async getAuthoredCourses() {
-    const res = await fetch(`${API_BASE}/courses/my`, {
+  async getAuthoredCourses(statuses) {
+    const params = new URLSearchParams();
+    if (statuses?.length) {
+      statuses.forEach((status) => params.append('status', status.toUpperCase()));
+    }
+    const query = params.toString();
+    const res = await fetch(`${API_BASE}/courses/my${query ? `?${query}` : ''}`, {
       headers: buildHeaders(),
       credentials: 'include',
     });
     if (res.status === 404) return [];
-    return handleResponse<AuthoredCourse[]>(res);
+    const data = await handleResponse<CourseDtoResponse[]>(res);
+    return data.map(mapCourseResponse);
   },
-  async getAuthoredCourseDetails() {
-    throw new Error('Profile API is not implemented yet');
+  async getAuthoredCourseDetails(courseId: string) {
+    const res = await fetch(`${API_BASE}/courses/${courseId}/details`, {
+      headers: buildHeaders(),
+      credentials: 'include',
+    });
+    if (res.status === 404) return null;
+    const data = await handleResponse<CourseDtoResponse>(res);
+    return mapCourseResponse(data);
   },
   async exportUserData() {
     throw new Error('Profile API is not implemented yet');
