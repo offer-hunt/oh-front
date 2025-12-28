@@ -18,6 +18,7 @@ import CoursesPage from '@/pages/CoursesPage';
 import CourseCreatePage from '@/pages/CourseCreatePage';
 import CourseEditorPage from '@/pages/CourseEditorPage';
 import CourseDetailPage from '@/pages/CourseDetailPage';
+import CourseLearningPage from '@/pages/CourseLearningPage';
 import AuthorProfilePage from '@/pages/AuthorProfilePage';
 import ProfilePage from '@/pages/ProfilePage';
 
@@ -80,6 +81,16 @@ export const router = createBrowserRouter([
         element: (
           <ProtectedRoute>
             <CourseEditorPage />
+          </ProtectedRoute>
+        ),
+      },
+
+      // Learning (для студентов)
+      {
+        path: 'learning/:courseId',
+        element: (
+          <ProtectedRoute>
+            <CourseLearningPage />
           </ProtectedRoute>
         ),
       },
